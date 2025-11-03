@@ -46,6 +46,7 @@ class IOWheel;
 class ItemClassification;
 class Guild;
 class Mounts;
+class AttachedEffects;
 class Spectators;
 class Player;
 class Account;
@@ -171,6 +172,8 @@ public:
 
 	std::shared_ptr<Player> getPlayerByID(uint32_t id, bool allowOffline = false);
 
+	std::shared_ptr<Player> getMarketPlayerByGUID(uint32_t &guid);
+
 	std::shared_ptr<Player> getPlayerByName(const std::string &s, bool allowOffline = false, bool isNewName = false);
 
 	std::shared_ptr<Player> getPlayerByGUID(const uint32_t &guid, bool allowOffline = false);
@@ -263,10 +266,23 @@ public:
 	void sendSingleSoundEffect(const Position &pos, SoundEffect_t soundId, const std::shared_ptr<Creature> &actor = nullptr);
 	void sendDoubleSoundEffect(const Position &pos, SoundEffect_t mainSoundEffect, SoundEffect_t secondarySoundEffect, const std::shared_ptr<Creature> &actor = nullptr);
 
-	void sendGuildMotd(uint32_t playerId);
+	void setGuildMotd(uint32_t guildId, const std::string &newMotd);
+	void sendGuildMotd(uint32_t playerId, uint32_t guildId);
+
+	// Guild management functions
+	void disbandGuild(uint32_t guildId);
+	void invitePlayerToGuild(uint32_t guildId, const std::string &playerName);
+	void removePlayerFromGuild(uint32_t guildId, const std::string &playerName);
+	void promotePlayer(uint32_t guildId, const std::string &playerName);
+	void demotePlayer(uint32_t guildId, const std::string &playerName);
+	void passLeadership(uint32_t guildId, const std::string &newLeaderName);
+	void setPlayerGuildNick(uint32_t guildId, const std::string &playerName, const std::string &nick);
+	void setRankName(uint32_t guildId, uint8_t rankLevel, const std::string &newName);
+	uint32_t createGuild(const std::string &guildName, const std::string &leaderName);
+	bool joinGuild(const std::string &guildName, const std::string &playerName);
+
 	void kickPlayer(uint32_t playerId, bool displayEffect);
 	void playerReportBug(uint32_t playerId, const std::string &message, const Position &position, uint8_t category);
-	void playerDebugAssert(uint32_t playerId, const std::string &assertLine, const std::string &date, const std::string &description, const std::string &comment);
 	void playerPreyAction(uint32_t playerId, uint8_t slot, uint8_t action, uint8_t option, int8_t index, uint16_t raceId);
 	void playerTaskHuntingAction(uint32_t playerId, uint8_t slot, uint8_t action, bool upgrade, uint16_t raceId);
 	void playerNpcGreet(uint32_t playerId, uint32_t npcId);
@@ -314,6 +330,7 @@ public:
 	static std::string getSkillNameById(uint8_t &skill);
 
 	// House Auction
+	int32_t getHighestBidCountByPlayerName(const std::string &playerName);
 	void playerCyclopediaHousesByTown(uint32_t playerId, const std::string &townName);
 	void playerCyclopediaHouseBid(uint32_t playerId, uint32_t houseId, uint64_t bidValue);
 	void playerCyclopediaHouseMoveOut(uint32_t playerId, uint32_t houseId, uint32_t timestamp);
@@ -386,12 +403,24 @@ public:
 	void playerLookInBattleList(uint32_t playerId, uint32_t creatureId);
 	void playerQuickLootCorpse(const std::shared_ptr<Player> &player, const std::shared_ptr<Container> &corpse, const Position &position);
 	void playerQuickLoot(uint32_t playerId, const Position &pos, uint16_t itemId, uint8_t stackPos, const std::shared_ptr<Item> &defaultItem = nullptr, bool lootAllCorpses = false, bool autoLoot = false);
-	void playerLootAllCorpses(const std::shared_ptr<Player> &player, const Position &pos, bool lootAllCorpses);
+	void playerLootAllCorpses(const std::shared_ptr<Player> &player, const Position &pos, bool alsoLootNearbyTiles);
 	void playerSetManagedContainer(uint32_t playerId, ObjectCategory_t category, const Position &pos, uint16_t itemId, uint8_t stackPos, bool isLootContainer);
 	void playerClearManagedContainer(uint32_t playerId, ObjectCategory_t category, bool isLootContainer);
 	void playerOpenManagedContainer(uint32_t playerId, ObjectCategory_t category, bool isLootContainer);
 	void playerSetQuickLootFallback(uint32_t playerId, bool fallback);
 	void playerQuickLootBlackWhitelist(uint32_t playerId, QuickLootFilter_t filter, const std::vector<uint16_t> &itemIds);
+
+	// Auto loot
+	void schedulePlayerQuickLoot(const std::shared_ptr<Player> &player, const Position &pos, uint16_t itemId, uint8_t stackPos, const std::shared_ptr<Item> &defaultItem, bool lootAllCorpses, bool autoLoot);
+	bool isPlayerInLootRange(const std::shared_ptr<Player> &player, const Position &pos);
+	bool walkPlayerToCorpse(const std::shared_ptr<Player> &player, const Position &pos, uint16_t itemId, uint8_t stackPos, const std::shared_ptr<Item> &defaultItem, bool lootAllCorpses, bool autoLoot);
+	std::shared_ptr<Item> getItemToLoot(const std::shared_ptr<Player> &player, const Position &pos, uint8_t stackPos, uint16_t itemId, const std::shared_ptr<Item> &defaultItem);
+	std::shared_ptr<Container> getCorpseFromItem(const std::shared_ptr<Item> &item, const Position &pos);
+	bool isCorpseLootable(const std::shared_ptr<Player> &player, const std::shared_ptr<Container> &corpse);
+	bool isDirectLoot(const Position &pos, const std::shared_ptr<Container> &corpse);
+	void handleDirectLoot(const std::shared_ptr<Player> &player, const std::shared_ptr<Item> &item, const std::shared_ptr<Container> &corpse);
+	void handleCorpseLoot(const std::shared_ptr<Player> &player, const std::shared_ptr<Container> &corpse, const Position &pos, bool lootAll);
+	void sendLootMessageWithCooldown(const std::shared_ptr<Player> &player, const std::string &message);
 
 	void playerRequestDepotItems(uint32_t playerId);
 	void playerRequestCloseDepotSearch(uint32_t playerId);
@@ -403,7 +432,7 @@ public:
 	void playerRequestAddVip(uint32_t playerId, const std::string &name);
 	void playerRequestRemoveVip(uint32_t playerId, uint32_t guid);
 	void playerRequestEditVip(uint32_t playerId, uint32_t guid, const std::string &description, uint32_t icon, bool notify, std::vector<uint8_t> vipGroupsId);
-	void playerApplyImbuement(uint32_t playerId, uint16_t imbuementid, uint8_t slot, bool protectionCharm);
+	void playerApplyImbuement(uint32_t playerId, uint16_t imbuementid, uint8_t slot);
 	void playerClearImbuement(uint32_t playerid, uint8_t slot);
 	void playerCloseImbuementWindow(uint32_t playerid);
 	void playerTurn(uint32_t playerId, Direction dir);
@@ -411,7 +440,7 @@ public:
 	void playerShowQuestLog(uint32_t playerId);
 	void playerShowQuestLine(uint32_t playerId, uint16_t questId);
 	void playerSay(uint32_t playerId, uint16_t channelId, SpeakClasses type, const std::string &receiver, const std::string &text);
-	void playerChangeOutfit(uint32_t playerId, Outfit_t outfit, bool isMounted = false, uint8_t isMountRandomized = 0);
+	void playerChangeOutfit(uint32_t playerId, Outfit_t outfit, bool isMounted = false, bool randomizeMount = false);
 	void playerInviteToParty(uint32_t playerId, uint32_t invitedId);
 	void playerJoinParty(uint32_t playerId, uint32_t leaderId);
 	void playerRevokePartyInvitation(uint32_t playerId, uint32_t invitedId);
@@ -462,7 +491,7 @@ public:
 	void changeLight(const std::shared_ptr<Creature> &creature);
 	void updateCreatureIcon(const std::shared_ptr<Creature> &creature);
 	void reloadCreature(const std::shared_ptr<Creature> &creature);
-	void updateCreatureSkull(const std::shared_ptr<Creature> &player) const;
+	void updateCreatureSkull(const std::shared_ptr<Creature> &creature) const;
 	void updatePlayerShield(const std::shared_ptr<Player> &player);
 	void updateCreatureType(const std::shared_ptr<Creature> &creature);
 	void updateCreatureWalkthrough(const std::shared_ptr<Creature> &creature);
@@ -705,6 +734,9 @@ public:
 	std::unique_ptr<IOWheel> &getIOWheel();
 	const std::unique_ptr<IOWheel> &getIOWheel() const;
 
+	std::unique_ptr<AttachedEffects> &getAttachedEffects();
+	const std::unique_ptr<AttachedEffects> &getAttachedEffects() const;
+
 	void setTransferPlayerHouseItems(uint32_t houseId, uint32_t playerId);
 	void transferHouseItemsToDepot();
 
@@ -732,6 +764,11 @@ public:
 	const std::map<uint8_t, std::string> &getBlessingNames();
 	const std::unordered_map<uint16_t, std::string> &getHirelingSkills();
 	const std::unordered_map<uint16_t, std::string> &getHirelingOutfits();
+	void sendAttachedEffect(const std::shared_ptr<Creature> &creature, uint16_t effectId);
+	void sendDetachEffect(const std::shared_ptr<Creature> &creature, uint16_t effectId);
+	void updateCreatureShader(const std::shared_ptr<Creature> &creature);
+	void playerSetTyping(uint32_t playerId, uint8_t typing);
+	void refreshItem(const std::shared_ptr<Item> &item);
 
 private:
 	std::map<uint16_t, Achievement> m_achievements;
@@ -752,7 +789,7 @@ private:
 	std::unordered_set<uint32_t> fiendishMonsters;
 	std::unordered_set<uint32_t> influencedMonsters;
 
-	bool playerSaySpell(const std::shared_ptr<Player> &player, SpeakClasses type, const std::string &text);
+	bool playerSaySpell(const std::shared_ptr<Player> &player, SpeakClasses type, const std::string &text, uint16_t channelId);
 	void playerWhisper(const std::shared_ptr<Player> &player, const std::string &text);
 	bool playerYell(const std::shared_ptr<Player> &player, const std::string &text);
 	bool playerSpeakTo(const std::shared_ptr<Player> &player, SpeakClasses type, const std::string &receiver, const std::string &text);
@@ -945,6 +982,8 @@ private:
 	// Variable members (m_)
 	std::unique_ptr<IOWheel> m_IOWheel;
 
+	std::unique_ptr<AttachedEffects> m_attachedEffects;
+
 	void cacheQueryHighscore(const std::string &key, const std::string &query, uint32_t page, uint8_t entriesPerPage);
 	void processHighscoreResults(const DBResult_ptr &result, uint32_t playerID, uint8_t category, uint32_t vocation, uint8_t entriesPerPage);
 
@@ -954,6 +993,7 @@ private:
 	std::string generateHighscoreOrGetCachedQueryForEntries(const std::string &categoryName, uint32_t page, uint8_t entriesPerPage, uint32_t vocation);
 	std::string generateHighscoreOrGetCachedQueryForOurRank(const std::string &categoryName, uint8_t entriesPerPage, uint32_t playerGUID, uint32_t vocation);
 
+	bool hasPartyMembersNearby(const std::shared_ptr<Player> &player);
 	bool isPlayerNoBoxed(const std::shared_ptr<Player> &player);
 };
 

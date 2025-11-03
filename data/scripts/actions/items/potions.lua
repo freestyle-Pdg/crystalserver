@@ -97,7 +97,7 @@ function flaskPotion.onUse(player, item, fromPosition, target, toPosition, isHot
 		target:say("Aaaah...", MESSAGE_POTION)
 
 		local deactivatedFlasks = player:kv():get("talkaction.potions.flask") or false
-		if not deactivatedFlasks then
+		if not deactivatedFlasks and configManager.getBoolean(configKeys.REMOVE_POTION_CHARGES) then
 			if fromPosition.x == CONTAINER_POSITION then
 				player:addItem(potion.flask, 1)
 			else

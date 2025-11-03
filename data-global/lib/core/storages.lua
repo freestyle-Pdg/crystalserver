@@ -81,8 +81,6 @@ Storage = {
 	EdronRopeQuest = 30004,
 	OrcKingGreeting = 30006,
 	MarkwinGreeting = 30007,
-	-- EmoteSpells Storage cannot be changed, it is set in source code
-	EmoteSpells = 30008,
 	WagonTicket = 30009,
 	FirstMageWeapon = 30011,
 	KawillBlessing = 30014,
@@ -2891,6 +2889,17 @@ Storage = {
 					Serenity = 290135,
 					Eternity = 290136,
 				},
+			},
+		},
+		U15_10 = { -- update 15.10 - Reserved Storages 48000 - 48030
+			BloodyTusks = {
+				Questline = 48000,
+				IntoTheGrave = 48001,
+				ThroughTheMist = 48002,
+				TheWrathOfTheAncestorst = 48003,
+				DanceOfDeath = 48004,
+				TheNextStep = 48005,
+				Bloodbath = 48006,
 			},
 		},
 	},

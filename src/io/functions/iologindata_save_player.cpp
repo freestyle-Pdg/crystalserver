@@ -208,7 +208,7 @@ bool IOLoginDataSave::savePlayerFirst(const std::shared_ptr<Player> &player) {
 	query << "`lookmountfeet` = " << static_cast<uint32_t>(player->defaultOutfit.lookMountFeet) << ",";
 	query << "`lookmounthead` = " << static_cast<uint32_t>(player->defaultOutfit.lookMountHead) << ",";
 	query << "`lookmountlegs` = " << static_cast<uint32_t>(player->defaultOutfit.lookMountLegs) << ",";
-	query << "`currentmount` = " << static_cast<uint32_t>(player->defaultOutfit.currentMount) << ",";
+	query << "`currentmount` = " << static_cast<uint32_t>(player->currentMount) << ",";
 	query << "`lookfamiliarstype` = " << player->defaultOutfit.lookFamiliarsType << ",";
 	query << "`isreward` = " << static_cast<uint16_t>(player->isDailyReward) << ",";
 	query << "`maglevel` = " << player->magLevel << ",";
@@ -228,6 +228,7 @@ bool IOLoginDataSave::savePlayerFirst(const std::shared_ptr<Player> &player) {
 	query << "`prey_wildcard` = " << player->getPreyCards() << ",";
 	query << "`task_points` = " << player->getTaskHuntingPoints() << ",";
 	query << "`boss_points` = " << player->getBossPoints() << ",";
+	query << "`loyalty_points` = " << player->getLoyaltyPoints() << ",";
 	query << "`forge_dusts` = " << player->getForgeDusts() << ",";
 	query << "`forge_dust_level` = " << player->getForgeDustLevel() << ",";
 	query << "`randomize_mount` = " << static_cast<uint16_t>(player->isRandomMounted()) << ",";
@@ -321,6 +322,26 @@ bool IOLoginDataSave::savePlayerFirst(const std::shared_ptr<Player> &player) {
 	query << "`quickloot_fallback` = " << (player->quickLootFallbackToMainContainer ? 1 : 0) << ",";
 	query << "`virtue` = " << static_cast<uint16_t>(player->getVirtue()) << ",";
 	query << "`harmony` = " << static_cast<uint16_t>(player->getHarmony()) << ",";
+
+	// Weapon Proficiency
+	PropWriteStream propWeaponProficiency;
+
+	propWeaponProficiency.write<uint16_t>(player->weaponProficiencies.size());
+	for (const auto &[itemId, proficiency] : player->weaponProficiencies) {
+		propWeaponProficiency.write<uint16_t>(itemId);
+		propWeaponProficiency.write<uint32_t>(proficiency.experience);
+
+		propWeaponProficiency.write<uint8_t>(proficiency.activePerks.size());
+		for (const auto &perk : proficiency.activePerks) {
+			propWeaponProficiency.write<uint8_t>(perk.proficiencyLevel);
+			propWeaponProficiency.write<uint8_t>(perk.perkPosition);
+		}
+	}
+
+	size_t proficiencySize;
+	const char* proficiencyData = propWeaponProficiency.getStream(proficiencySize);
+
+	query << "`weapon_proficiencies` = " << db.escapeBlob(proficiencyData, static_cast<uint32_t>(proficiencySize)) << ",";
 
 	if (!player->isOffline()) {
 		auto now = std::chrono::system_clock::now();
