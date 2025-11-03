@@ -12116,7 +12116,7 @@ void Player::addScheduledUpdates(uint32_t flags) {
 		g_dispatcher().addEvent(
 			[playerId = getID()]() { g_game().updatePlayerEvent(playerId); },
 			__FUNCTION__,
-			PLAYER_UPDATE_TICKS // [2025-02-11 23:04:18.388] [info] The task 'Player::addScheduledUpdates' has expired, it has not been executed in 50.
+			PLAYER_UPDATE_TICKS
 		);
 
 		scheduledUpdate = true;
