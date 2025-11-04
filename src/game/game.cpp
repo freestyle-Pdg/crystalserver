@@ -11749,7 +11749,7 @@ bool Game::processBankAuction(std::shared_ptr<Player> player, const std::shared_
 }
 
 void Game::checkFreeTown(const std::shared_ptr<Player> &player) {
-	if (!player || player->isPremium()) {
+	if (!player || player->isPremium() || player->isVip()) {
 		return;
 	}
 
