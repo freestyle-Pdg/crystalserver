@@ -1689,7 +1689,6 @@ void Player::sendLootStats(const std::shared_ptr<Item> &item, uint8_t count) {
 	}
 	batchedTrackerData.lootValue += value;
 
-	// Schedule batch flush if not already pending
 	if (!trackerBatchPending) {
 		trackerBatchPending = true;
 		const auto self = static_self_cast<Player>();
@@ -1703,13 +1702,11 @@ void Player::sendLootStats(const std::shared_ptr<Item> &item, uint8_t count) {
 }
 
 void Player::updateSupplyTracker(const std::shared_ptr<Item> &item) {
-	// Batch supply tracker to reduce I/O and allocations
 	batchedTrackerData.supplyItems.push_back(item);
 
 	const auto &iType = Item::items.getItemType(item->getID());
 	batchedTrackerData.supplyValue += iType.buyPrice;
 
-	// Schedule batch flush if not already pending
 	if (!trackerBatchPending) {
 		trackerBatchPending = true;
 		const auto self = static_self_cast<Player>();
@@ -1723,10 +1720,8 @@ void Player::updateSupplyTracker(const std::shared_ptr<Item> &item) {
 }
 
 void Player::updateImpactTracker(CombatType_t type, int32_t amount) const {
-	// Batch impact tracker to reduce I/O and allocations
 	const_cast<Player*>(this)->batchedTrackerData.impactData.emplace_back(type, amount);
 
-	// Schedule batch flush if not already pending
 	if (!trackerBatchPending) {
 		const_cast<Player*>(this)->trackerBatchPending = true;
 		const auto self = const_cast<Player*>(this)->static_self_cast<Player>();
@@ -1740,10 +1735,8 @@ void Player::updateImpactTracker(CombatType_t type, int32_t amount) const {
 }
 
 void Player::updateInputAnalyzer(CombatType_t type, int32_t amount, const std::string &target) const {
-	// Batch input analyzer to reduce I/O and allocations
 	const_cast<Player*>(this)->batchedTrackerData.inputData.emplace_back(type, amount, target);
 
-	// Schedule batch flush if not already pending
 	if (!trackerBatchPending) {
 		const_cast<Player*>(this)->trackerBatchPending = true;
 		const auto self = const_cast<Player*>(this)->static_self_cast<Player>();
@@ -1759,13 +1752,25 @@ void Player::updateInputAnalyzer(CombatType_t type, int32_t amount, const std::s
 void Player::flushBatchedTrackerData() {
 	trackerBatchPending = false;
 
-	// Send aggregated loot stats
-	if (batchedTrackerData.lootValue > 0) {
-		g_metrics().addCounter("player_loot", batchedTrackerData.lootValue, { { "player", getName() } });
-	}
-
-	// Send individual loot items to client and party
 	for (const auto &[item, count] : batchedTrackerData.lootItems) {
+		uint64_t value = 0;
+		if (item) {
+			if (item->getID() == ITEM_GOLD_COIN || item->getID() == ITEM_PLATINUM_COIN || item->getID() == ITEM_CRYSTAL_COIN) {
+				if (item->getID() == ITEM_PLATINUM_COIN) {
+					value = static_cast<uint64_t>(count) * 100ULL;
+				} else if (item->getID() == ITEM_CRYSTAL_COIN) {
+					value = static_cast<uint64_t>(count) * 10000ULL;
+				} else {
+					value = static_cast<uint64_t>(count);
+				}
+			} else if (const auto &npc = g_game().getNpcByName("The Lootmonger")) {
+				const auto &iType = Item::items.getItemType(item->getID());
+				value = static_cast<uint64_t>(iType.sellPrice) * static_cast<uint64_t>(count);
+			}
+		}
+		if (value > 0) {
+			g_metrics().addCounter("player_loot", value, { { "player", getName() } });
+		}
 		if (client) {
 			client->sendLootStats(item, count);
 		}
@@ -1774,12 +1779,10 @@ void Player::flushBatchedTrackerData() {
 		}
 	}
 
-	// Send aggregated supply stats
 	if (batchedTrackerData.supplyValue > 0) {
 		g_metrics().addCounter("player_supply", batchedTrackerData.supplyValue, { { "player", getName() } });
 	}
 
-	// Send individual supply items to client and party
 	for (const auto &item : batchedTrackerData.supplyItems) {
 		if (client) {
 			client->sendUpdateSupplyTracker(item);
@@ -1789,21 +1792,18 @@ void Player::flushBatchedTrackerData() {
 		}
 	}
 
-	// Send batched impact tracker data
 	for (const auto &[type, amount] : batchedTrackerData.impactData) {
 		if (client) {
 			client->sendUpdateImpactTracker(type, amount);
 		}
 	}
 
-	// Send batched input analyzer data
 	for (const auto &[type, amount, target] : batchedTrackerData.inputData) {
 		if (client) {
 			client->sendUpdateInputAnalyzer(type, amount, target);
 		}
 	}
 
-	// Clear batched data
 	batchedTrackerData = BatchedTrackerData {};
 }
 
