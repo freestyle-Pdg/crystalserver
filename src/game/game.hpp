@@ -208,9 +208,7 @@ public:
 		return playersRecord;
 	}
 
-	void loadSpecialTiles();
-	bool isSpecialTile(const Position &pos) const;
-	void checkSpecialTiles(const std::shared_ptr<Player> &player);
+	void checkFreeTown(const std::shared_ptr<Player> &player);
 
 	bool isSwimmingPool(const std::shared_ptr<Item> &item, const std::shared_ptr<Tile> &tile, bool checkProtection) const;
 	void createIllusion(const std::shared_ptr<Player> &player, const Outfit_t &outfit, int32_t time);

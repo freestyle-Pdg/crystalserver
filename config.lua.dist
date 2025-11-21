@@ -1,5 +1,15 @@
 -- Crystal Server Configuration
 
+-- MySQL
+mysqlHost = "127.0.0.1"
+mysqlUser = "root"
+mysqlPass = "root"
+mysqlDatabase = "crystalserver"
+mysqlPort = 3306
+mysqlSock = ""
+passwordType = "sha1"
+mysqlDatabaseBackup = false
+
 -- Core settings
 -- If you want to use the global datapack folder, put "data-global"
 -- if you want use Crystal Server map, put "data-crystal"
@@ -334,13 +344,6 @@ minTownIdToBankTransferFromMain = 4
 stashMoving = false
 stashManageAmount = 100000
 
--- Special tiles and Free Town
--- NOTE: Special tiles and free town ID are independent.
--- NOTE: Set toggleSpecialTiles to true if you want to use the system.
--- NOTE: freeTownId = 8 is Thais city.
-freeTownId = 8
-toggleSpecialTiles = false
-
 -- Cosmetics
 -- NOTE: enableSupportOutfit enable GODS and GMS to select support outfit (gamemaster, customer support or community manager)
 enableSupportOutfit = true
@@ -468,16 +471,6 @@ premiumToCreateMarketOffer = true
 checkExpiredMarketOffersEachMinutes = 60
 maxMarketOffersAtATimePerPlayer = 100
 
--- MySQL
-mysqlHost = "127.0.0.1"
-mysqlUser = "root"
-mysqlPass = "root"
-mysqlDatabase = "crystalserver"
-mysqlPort = 3306
-mysqlSock = ""
-passwordType = "sha1"
-mysqlDatabaseBackup = false
-
 -- NOTE: memoryConst: This is the memory cost for the Argon2 hash algorithm. It specifies the amount of memory that the algorithm will use when calculating a hash.
 --The memory cost is measured in units of KiB (1024 bytes). A higher memory cost makes the algorithm more resistant to brute-force and hash-table attacks, but also consumes more memory.
 -- NOTE: temporaryConst: This is the time cost for the Argon2 hash algorithm. It specifies the amount of computational time that the algorithm will spend when calculating a hash.
@@ -498,7 +491,6 @@ resetSessionsOnStartup = false
 -- NOTE: disableLegacyRaids: set to true to disable legacy XML raids
 -- NOTE: logPlayersStatements will log all player statements.
 allowChangeOutfit = true
-freePremium = false
 kickIdlePlayerAfterMinutes = 15
 maxMessageBuffer = 4
 allowWalkthrough = true
@@ -524,6 +516,15 @@ minElementalResistance = -200
 maxElementalResistance = 200
 maxDamageReflection = 200
 logPlayersStatements = false
+
+-- Premium
+-- Comma-separated list of towns treated as free for non-premium players
+-- NOTE: "Ab'Dendriel,Carlin,Kazordoon,Thais,Venore,Rookgaard,Dawnport,Dawnport Tutorial,Island of Destiny,Karmia"
+-- NOTE: freePremium: set to true to give all players premium status
+-- NOTE: freeTownName: set the town name where non-premium players will be teleported when trying to login in premium areas
+freePremium = false
+freeTownName = "Thais"
+freeTowns = "Ab'Dendriel,Carlin,Kazordoon,Thais,Venore,Rookgaard,Dawnport,Dawnport Tutorial,Island of Destiny,Karmia"
 
 -- Chain system
 -- NOTE: combatChainDelay: set to minimum 50 miliseconds

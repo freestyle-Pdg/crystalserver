@@ -1605,12 +1605,6 @@ ReturnValue Game::internalMoveCreature(const std::shared_ptr<Creature> &creature
 	Position destPos = getNextPosition(direction, currentPos);
 	const auto &player = creature->getPlayer();
 
-	// special tiles
-	if (player && isSpecialTile(destPos) && !player->isPremium()) {
-		player->sendCancelWalk();
-		return RETURNVALUE_YOUNEEDPREMIUMACCOUNT;
-	}
-
 	bool diagonalMovement = (direction & DIRECTION_DIAGONAL_MASK) != 0;
 	if (player && !diagonalMovement) {
 		// try go up
@@ -11784,73 +11778,66 @@ bool Game::processBankAuction(std::shared_ptr<Player> player, const std::shared_
 	return true;
 }
 
-void Game::loadSpecialTiles() {
-	if (!g_configManager().getBoolean(TOGGLE_SPECIAL_TILES)) {
-		return;
-	}
-
-	pugi::xml_document doc;
-	const std::string folder = g_configManager().getString(CORE_DIRECTORY) + "/XML/specialtiles.xml";
-	const pugi::xml_parse_result result = doc.load_file(folder.c_str());
-
-	if (!result) {
-		printXMLError(__FUNCTION__, folder, result);
-		return;
-	}
-
-	specialTiles.clear();
-
-	pugi::xml_node root = doc.child("specialtiles");
-
-	for (pugi::xml_node tileNode : root.children("tile")) {
-		int x = tileNode.attribute("x").as_int();
-		int y = tileNode.attribute("y").as_int();
-		int z = tileNode.attribute("z").as_int();
-		specialTiles.insert(Position(x, y, z));
-	}
-
-	for (pugi::xml_node tilesNode : root.children("tiles")) {
-		int fromX = tilesNode.attribute("fromX").as_int();
-		int fromY = tilesNode.attribute("fromY").as_int();
-		int fromZ = tilesNode.attribute("fromZ").as_int();
-		int toX = tilesNode.attribute("toX").as_int();
-		int toY = tilesNode.attribute("toY").as_int();
-
-		for (int x = fromX; x <= toX; ++x) {
-			for (int y = fromY; y <= toY; ++y) {
-				specialTiles.insert(Position(x, y, fromZ));
-			}
-		}
-	}
-
-	g_logger().info("Loaded {} special tiles from Special Tiles System", specialTiles.size());
-}
-
-bool Game::isSpecialTile(const Position &pos) const {
-	return specialTiles.find(pos) != specialTiles.end();
-}
-
-void Game::checkSpecialTiles(const std::shared_ptr<Player> &player) {
+void Game::checkFreeTown(const std::shared_ptr<Player> &player) {
 	if (!player || player->isPremium() || player->isVip()) {
 		return;
 	}
 
-	const auto freeTownId = g_configManager().getNumber(FREE_TOWN_ID);
-	const auto &freeTown = g_game().map.towns.getTown(freeTownId);
-	if (!freeTown) {
+	const auto &freeTownsStr = g_configManager().getString(FREE_TOWNS);
+	if (freeTownsStr.empty()) {
 		return;
 	}
 
-	const auto &playerPos = player->getPosition();
-	const auto freeTownTemplePosition = freeTown->getTemplePosition();
-	if (isSpecialTile(playerPos)) {
-		player->sendTextMessage(MESSAGE_ADMINISTRATOR, "Your premium has expired. You are being teleported to a free town.");
-		Position freeTemplePosition(freeTownTemplePosition);
-		internalTeleport(player, freeTemplePosition, false);
-		player->loginPosition = freeTownTemplePosition;
-		player->setTown(freeTown);
-		g_saveManager().savePlayer(player);
+	auto freeTowns = explodeString(freeTownsStr, ",");
+	for (auto &name : freeTowns) {
+		trimString(name);
 	}
+
+	const auto &currentTown = player->getTown();
+	if (!currentTown) {
+		return;
+	}
+
+	const auto &currentTownName = currentTown->getName();
+	const bool isInFreeArea = std::ranges::find(freeTowns, currentTownName) != freeTowns.end();
+	if (isInFreeArea) {
+		return;
+	}
+
+	const auto freeTownName = g_configManager().getString(FREE_TOWN_NAME);
+	auto defaultTown = g_game().map.towns.getTown(freeTownName);
+	if (!defaultTown) {
+		return;
+	}
+
+	const auto &templePos = defaultTown->getTemplePosition();
+	internalTeleport(player, Position(templePos), false);
+	player->setTown(defaultTown);
+	player->sendTextMessage(MESSAGE_FAILURE, "Your premium time has expired!");
+
+	Outfit_t outfit = player->getDefaultOutfit();
+	if (player->getSex() == PLAYERSEX_MALE) {
+		outfit.lookType = 128;
+	} else {
+		outfit.lookType = 136;
+	}
+	outfit.lookHead = 114;
+	outfit.lookBody = 120;
+	outfit.lookLegs = 132;
+	outfit.lookFeet = 115;
+	outfit.lookAddons = 0;
+	player->setDefaultOutfit(outfit);
+	internalCreatureChangeOutfit(player, outfit);
+
+	const auto house = g_game().map.houses.getHouseByPlayerId(player->getGUID());
+	if (house) {
+		house->setOwner(0, true, player);
+		transferHouseItemsToDepot();
+		player->sendTextMessage(MESSAGE_GAME_HIGHLIGHT, "You have lost your house because you are no longer a premium account.");
+		player->sendTextMessage(MESSAGE_GAME_HIGHLIGHT, "Your items from the house have been sent to your inbox.");
+	}
+
+	g_saveManager().savePlayer(player);
 }
 
 bool Game::isSwimmingPool(const std::shared_ptr<Item> &item, const std::shared_ptr<Tile> &tile, bool checkProtection) const {

@@ -180,7 +180,6 @@ bool ConfigManager::load() {
 	loadBoolConfig(L, UNLOCK_ALL_MOUNTS, "unlockAllMounts", false);
 	loadBoolConfig(L, UNLOCK_ALL_FAMILIARS, "unlockAllFamiliars", false);
 	loadBoolConfig(L, LEAVE_PARTY_ON_DEATH, "leavePartyOnDeath", false);
-	loadBoolConfig(L, TOGGLE_SPECIAL_TILES, "toggleSpecialTiles", false);
 	loadBoolConfig(L, TOGGLE_GUILDHALL_NEED_GUILD, "toggleGuildHallNeedGuild", true);
 	loadBoolConfig(L, TOGGLE_MAX_CONNECTIONS_BY_IP, "toggleMaxConnectionsByIP", false);
 	loadBoolConfig(L, TOGGLE_GUILD_WARS, "toggleGuildWars", false);
@@ -401,7 +400,6 @@ bool ConfigManager::load() {
 	loadIntConfig(L, ROOK_SLOT_AMMO, "rookSlotAmmo", 0);
 	loadIntConfig(L, DAYS_TO_CLOSE_BID, "daysToCloseBid", 7);
 	loadIntConfig(L, ANIMUS_MASTERY_MONSTERS_TO_INCREASE_XP_MULTIPLIER, "animusMasteryMonstersToIncreaseXpMultiplier", 10);
-	loadIntConfig(L, FREE_TOWN_ID, "freeTownId", 8);
 	loadIntConfig(L, UI_ACTIONS_DELAY_INTERVAL, "uiActionsDelay", 1000);
 	loadIntConfig(L, MARKET_ACTIONS_DELAY_INTERVAL, "marketActionsDelay", 1000);
 	loadIntConfig(L, IMBUEMENT_ACTIONS_DELAY_INTERVAL, "imbueActionsDelay", 1000);
@@ -429,10 +427,12 @@ bool ConfigManager::load() {
 	loadStringConfig(L, SERVER_MOTD, "serverMotd", "");
 	loadStringConfig(L, SERVER_NAME, "serverName", "");
 	loadStringConfig(L, STORE_IMAGES_URL, "coinImagesURL", "");
+	loadStringConfig(L, FREE_TOWNS, "freeTowns", "");
 	loadStringConfig(L, TIBIADROME_CONCOCTION_TICK_TYPE, "tibiadromeConcoctionTickType", "online");
 	loadStringConfig(L, URL, "url", "");
 	loadStringConfig(L, WORLD_TYPE, "worldType", "pvp");
 	loadStringConfig(L, LOGLEVEL, "logLevel", "info");
+	loadStringConfig(L, FREE_TOWN_NAME, "freeTownName", "Thais");
 
 	loadLuaOTCFeatures(L);
 
