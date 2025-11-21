@@ -84,12 +84,12 @@ int32_t Weapons::getMaxMeleeDamage(int32_t attackSkill, int32_t attackValue) {
 }
 
 // Players
-int32_t Weapons::getMaxWeaponDamage(uint32_t level, int32_t attackSkill, int32_t attackValue, float attackFactor, bool isMelee) {
-	if (isMelee) {
-		return attackValue > 0 ? static_cast<int32_t>(std::round((0.085 * attackFactor * attackValue * attackSkill) + (level / 5))) : 0;
-	} else {
-		return static_cast<int32_t>(std::round((0.09 * attackFactor * attackValue * attackSkill) + (level / 5)));
-	}
+int32_t Weapons::getMaxWeaponDamage(uint32_t level, int32_t attackSkill, int32_t attackValue, float attackFactor) {
+	return static_cast<int32_t>(0.085 * 1 / attackFactor * attackValue * attackSkill + level * 0.2);
+}
+
+int32_t Weapons::getMinWeaponDamage(uint32_t level, int32_t attackSkill, int32_t attackValue, float attackFactor) {
+	return static_cast<int32_t>(0.04 * 1 / attackFactor * attackValue * attackSkill + level * 0.2 - level * 0.02);
 }
 
 Weapon::Weapon() = default;
@@ -204,7 +204,7 @@ CombatDamage Weapon::getCombatDamage(CombatDamage combat, const std::shared_ptr<
 	const double weaponAttackProportion = static_cast<double>(weaponAttack) / static_cast<double>(totalAttack);
 
 	// Calculating damage
-	const int32_t maxDamage = static_cast<int32_t>(Weapons::getMaxWeaponDamage(level, playerSkill, totalAttack, attackFactor, true) * player->getVocation()->meleeDamageMultiplier * damageModifier / 100);
+	const int32_t maxDamage = static_cast<int32_t>(Weapons::getMaxWeaponDamage(level, playerSkill, totalAttack, attackFactor) * player->getVocation()->meleeDamageMultiplier * damageModifier / 100);
 	const int32_t minDamage = level / 5;
 	const int32_t realDamage = normal_random(minDamage, maxDamage);
 
@@ -223,7 +223,7 @@ bool Weapon::useFist(const std::shared_ptr<Player> &player, const std::shared_pt
 	const int32_t attackSkill = player->getSkillLevel(SKILL_FIST);
 	constexpr int32_t attackValue = 7;
 
-	const int32_t maxDamage = Weapons::getMaxWeaponDamage(player->getLevel(), attackSkill, attackValue, attackFactor, true);
+	const int32_t maxDamage = Weapons::getMaxWeaponDamage(player->getLevel(), attackSkill, attackValue, attackFactor);
 
 	CombatParams params;
 	params.combatType = COMBAT_PHYSICALDAMAGE;
@@ -629,7 +629,7 @@ int32_t WeaponMelee::getElementDamage(const std::shared_ptr<Player> &player, con
 	const float attackFactor = player->getAttackFactor();
 	const uint32_t level = player->getLevel();
 
-	const int32_t maxValue = Weapons::getMaxWeaponDamage(level, attackSkill, attackValue, attackFactor, true);
+	const int32_t maxValue = Weapons::getMaxWeaponDamage(level, attackSkill, attackValue, attackFactor);
 	const int32_t minValue = level / 5;
 
 	return -normal_random(minValue, static_cast<int32_t>(maxValue * player->getVocation()->meleeDamageMultiplier));
@@ -640,23 +640,21 @@ int16_t WeaponMelee::getElementDamageValue() const {
 }
 
 int32_t WeaponMelee::getWeaponDamage(const std::shared_ptr<Player> &player, const std::shared_ptr<Creature> &, const std::shared_ptr<Item> &item, bool maxDamage /*= false*/) const {
-	const int32_t attackSkill = player->getWeaponSkill(item);
-	const int32_t physicalAttack = std::max<int32_t>(0, item->getAttack());
-	const int32_t elementalAttack = getElementDamageValue();
-	const int32_t combinedAttack = physicalAttack + elementalAttack;
+	int32_t attackSkill = player->getWeaponSkill(item);
+	int32_t baseAttack = std::max<int32_t>(0, item->getAttack());
+	int32_t attackValue = elementDamage + baseAttack;
+	float attackFactor = player->getAttackFactor();
+	float attackModifier = baseAttack * 1.0 / attackValue; // 1.0 casts var to float
+	uint32_t level = player->getLevel();
+	float vocMult = player->getVocation()->meleeDamageMultiplier;
 
-	const float attackFactor = player->getAttackFactor();
-	const uint32_t level = player->getLevel();
-
-	const auto maxValue = static_cast<int32_t>(Weapons::getMaxWeaponDamage(level, attackSkill, combinedAttack, attackFactor, true) * player->getVocation()->meleeDamageMultiplier);
-
-	const int32_t minValue = physicalAttack > 0 ? level / 5 : 0;
-
+	int32_t maxValue = static_cast<int32_t>(Weapons::getMaxWeaponDamage(level, attackSkill, attackValue, attackFactor) * attackModifier * vocMult);
 	if (maxDamage) {
 		return -maxValue;
 	}
 
-	return -normal_random(minValue, maxValue);
+	int32_t minValue = static_cast<int32_t>(Weapons::getMinWeaponDamage(level, attackSkill, attackValue, attackFactor) * attackModifier * vocMult);
+	return -uniform_random(minValue, maxValue);
 }
 
 WeaponDistance::WeaponDistance() {
@@ -876,21 +874,14 @@ int32_t WeaponDistance::getElementDamage(const std::shared_ptr<Player> &player, 
 		}
 	}
 
-	const int32_t attackSkill = player->getSkillLevel(SKILL_DISTANCE);
-	const float attackFactor = player->getAttackFactor();
+	int32_t attackSkill = player->getSkillLevel(SKILL_DISTANCE);
+	float attackFactor = player->getAttackFactor();
+	uint32_t level = player->getLevel();
+	float vocMult = player->getVocation()->distDamageMultiplier;
 
-	int32_t minValue = std::round(player->getLevel() / 5);
-	const int32_t maxValue = std::round((0.09f * attackFactor) * attackSkill * attackValue + minValue) / 2;
-
-	if (target) {
-		if (target->getPlayer()) {
-			minValue /= 4;
-		} else {
-			minValue /= 2;
-		}
-	}
-
-	return -normal_random(minValue, static_cast<int32_t>(maxValue * player->getVocation()->distDamageMultiplier));
+	int32_t minValue = static_cast<int32_t>(Weapons::getMinWeaponDamage(level, attackSkill, attackValue, attackFactor) * vocMult);
+	int32_t maxValue = static_cast<int32_t>(Weapons::getMaxWeaponDamage(level, attackSkill, attackValue, attackFactor) * vocMult);
+	return -uniform_random(minValue, maxValue);
 }
 
 int16_t WeaponDistance::getElementDamageValue() const {
@@ -916,27 +907,16 @@ int32_t WeaponDistance::getWeaponDamage(const std::shared_ptr<Player> &player, c
 
 	const int32_t attackSkill = player->getSkillLevel(SKILL_DISTANCE);
 	const float attackFactor = player->getAttackFactor();
+	uint32_t level = player->getLevel();
+	float vocMult = player->getVocation()->distDamageMultiplier;
 
-	int32_t minValue = player->getLevel() / 5;
-	int32_t maxValue = std::round((0.09f * attackFactor) * attackSkill * attackValue + minValue);
+	int32_t maxValue = static_cast<int32_t>(Weapons::getMaxWeaponDamage(level, attackSkill, attackValue, attackFactor) * vocMult);
 	if (maxDamage) {
 		return -maxValue;
 	}
 
-	if (target && target->getPlayer()) {
-		if (hasElement) {
-			minValue /= 4;
-		} else {
-			minValue /= 2;
-		}
-	} else {
-		if (hasElement) {
-			maxValue /= 2;
-			minValue /= 2;
-		}
-	}
-
-	return -normal_random(minValue, (maxValue * static_cast<int32_t>(player->getVocation()->distDamageMultiplier)));
+	int32_t minValue = static_cast<int32_t>(Weapons::getMinWeaponDamage(level, attackSkill, attackValue, attackFactor) * vocMult);
+	return -uniform_random(minValue, maxValue);
 }
 
 bool WeaponDistance::getSkillType(const std::shared_ptr<Player> &player, const std::shared_ptr<Item> &, skills_t &skill, uint32_t &skillpoint) const {
@@ -975,47 +955,10 @@ void WeaponWand::configureWeapon(const ItemType &it) {
 }
 
 int32_t WeaponWand::getWeaponDamage(const std::shared_ptr<Player> &player, const std::shared_ptr<Creature> &, const std::shared_ptr<Item> &, bool maxDamage /* = false*/) const {
-	if (!player->checkChainSystem()) {
-		float multiplier = 1.0f;
-		auto vocation = player->getVocation();
-		if (vocation) {
-			multiplier = vocation->wandRodDamageMultiplier;
-		}
-
-		auto maxValue = static_cast<int32_t>(maxChange * multiplier);
-
-		// Returns maximum damage or a random value between minChange and maxChange
-		return maxDamage ? -maxValue : -normal_random(minChange, maxValue);
+	if (maxDamage) {
+		return -maxChange;
 	}
-
-	if (!g_configManager().getBoolean(CHAIN_SYSTEM_MODIFY_MAGIC)) {
-		return maxDamage ? -maxChange : -normal_random(minChange, maxChange);
-	}
-
-	// If chain system is enabled, calculates magic-based damage
-	int32_t attackSkill = 0;
-	int32_t attackValue = 0;
-	float attackFactor = 0.0;
-	[[maybe_unused]] int16_t elementAttack = 0;
-	[[maybe_unused]] CombatDamage combatDamage;
-	calculateSkillFormula(player, attackSkill, attackValue, attackFactor, elementAttack, combatDamage);
-
-	const auto magLevel = player->getMagicLevel();
-	const auto level = player->getLevel();
-
-	// Check if level is greater than zero before performing division
-	const auto levelDivision = level > 0 ? level / 5.0 : 0.0;
-
-	const auto totalAttackValue = magLevel + attackValue;
-
-	// Check if magLevel is greater than zero before performing division
-	const auto magicLevelDivision = totalAttackValue > 0 ? totalAttackValue / 3.0 : 0.0;
-
-	const double min = levelDivision + magicLevelDivision;
-	const double max = levelDivision + totalAttackValue;
-
-	// Returns the calculated maximum damage or a random value between the calculated minimum and maximum
-	return maxDamage ? -max : -normal_random(min, max);
+	return -normal_random(minChange, maxChange);
 }
 
 int16_t WeaponWand::getElementDamageValue() const {
