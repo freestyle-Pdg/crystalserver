@@ -1179,8 +1179,7 @@ void Player::addSkillAdvance(skills_t skill, uint64_t count) {
 	}
 
 	if (sendUpdateSkills) {
-		sendSkills();
-		sendStats();
+		addScheduledUpdates((PlayerUpdate_Stats | PlayerUpdate_Skills));
 	}
 }
 
@@ -2520,11 +2519,13 @@ void Player::sendCyclopediaHouseList(const HouseMap &houses) const {
 		client->sendCyclopediaHouseList(houses);
 	}
 }
+
 void Player::sendResourceBalance(Resource_t resourceType, uint64_t value) const {
 	if (client) {
 		client->sendResourceBalance(resourceType, value);
 	}
 }
+
 void Player::sendHouseAuctionMessage(uint32_t houseId, HouseAuctionType type, uint8_t index, bool bidSuccess /* = false*/) const {
 	if (client) {
 		client->sendHouseAuctionMessage(houseId, type, index, bidSuccess);
@@ -2654,8 +2655,7 @@ void Player::onApplyImbuement(const Imbuement* imbuement, const std::shared_ptr<
 		openImbuementWindow(IMBUEMENT_WINDOW_SCROLL, item);
 	}
 
-	sendStats();
-	sendSkills();
+	addScheduledUpdates((PlayerUpdate_Stats | PlayerUpdate_Skills));
 }
 
 void Player::onClearImbuement(const std::shared_ptr<Item> &item, uint8_t slot) {
@@ -3246,7 +3246,7 @@ uint16_t Player::getDisplayXpBoostPercent() const {
 
 void Player::setXpBoostPercent(uint16_t percent) {
 	xpBoostPercent = percent;
-	sendStats();
+	addScheduledUpdates(PlayerUpdate_Stats);
 }
 
 uint16_t Player::getStaminaXpBoost() const {
@@ -3325,8 +3325,7 @@ void Player::addItemImbuementStats(const Imbuement* imbuement) {
 	}
 
 	if (requestUpdate) {
-		sendStats();
-		sendSkills();
+		addScheduledUpdates((PlayerUpdate_Stats | PlayerUpdate_Skills));
 	}
 }
 
@@ -3371,8 +3370,7 @@ void Player::removeItemImbuementStats(const Imbuement* imbuement) {
 	}
 
 	if (requestUpdate) {
-		sendStats();
-		sendSkills();
+		addScheduledUpdates((PlayerUpdate_Stats | PlayerUpdate_Skills));
 	}
 }
 
@@ -3501,12 +3499,12 @@ void Player::drainHealth(const std::shared_ptr<Creature> &attacker, int32_t dama
 	}
 
 	Creature::drainHealth(attacker, damage);
-	sendStats();
+	addScheduledUpdates(PlayerUpdate_Stats);
 }
 
 void Player::drainMana(const std::shared_ptr<Creature> &attacker, int32_t manaLoss) {
 	Creature::drainMana(attacker, manaLoss);
-	sendStats();
+	addScheduledUpdates(PlayerUpdate_Stats);
 }
 
 void Player::addManaSpent(uint64_t amount) {
@@ -3564,8 +3562,7 @@ void Player::addManaSpent(uint64_t amount) {
 	}
 
 	if (sendUpdateStats) {
-		sendStats();
-		sendSkills();
+		addScheduledUpdates((PlayerUpdate_Stats | PlayerUpdate_Skills));
 	}
 }
 
@@ -3576,7 +3573,7 @@ void Player::addExperience(const std::shared_ptr<Creature> &target, uint64_t exp
 	if (currLevelExp >= nextLevelExp) {
 		// player has reached max level
 		levelPercent = 0;
-		sendStats();
+		addScheduledUpdates(PlayerUpdate_Stats);
 		return;
 	}
 
@@ -3696,7 +3693,7 @@ void Player::addExperience(const std::shared_ptr<Creature> &target, uint64_t exp
 	} else {
 		levelPercent = 0;
 	}
-	sendStats();
+	addScheduledUpdates(PlayerUpdate_Stats);
 	sendExperienceTracker(rawExp, exp);
 }
 
@@ -3781,7 +3778,7 @@ void Player::removeExperience(uint64_t exp, bool sendText /* = false*/) {
 	} else {
 		levelPercent = 0;
 	}
-	sendStats();
+	addScheduledUpdates(PlayerUpdate_Stats);
 	sendExperienceTracker(0, -static_cast<int64_t>(exp));
 }
 
@@ -4226,8 +4223,7 @@ void Player::death(const std::shared_ptr<Creature> &lastHitCreature) {
 		// rook system
 		sendToRook();
 
-		sendStats();
-		sendSkills();
+		addScheduledUpdates((PlayerUpdate_Stats | PlayerUpdate_Skills));
 		sendReLoginWindow(unfairFightReduction);
 		sendBlessStatus();
 		lastLogout = getTimeNow();
@@ -4275,7 +4271,7 @@ void Player::death(const std::shared_ptr<Creature> &lastHitCreature) {
 		g_game().addPlayerMana(static_self_cast<Player>());
 		onThink(EVENT_CREATURE_THINK_INTERVAL);
 		onIdleStatus();
-		sendStats();
+		addScheduledUpdates(PlayerUpdate_Stats);
 	}
 }
 
@@ -4419,8 +4415,7 @@ void Player::sendToRook() {
 			}
 
 			updateBaseSpeed();
-			sendSkills();
-			sendStats();
+			addScheduledUpdates((PlayerUpdate_Stats | PlayerUpdate_Skills));
 			g_saveManager().savePlayer(getPlayer());
 			g_logger().info("{} has been rooked", getName());
 		}
@@ -6044,17 +6039,6 @@ std::map<uint16_t, uint16_t> &Player::getAllSaleItemIdAndCount(std::map<uint16_t
 	return countMap;
 }
 
-void Player::getAllItemTypeCountAndSubtype(std::map<uint32_t, uint32_t> &countMap) const {
-	for (const auto &item : getAllInventoryItems()) {
-		const uint16_t itemId = item->getID();
-		if (Item::items[itemId].isFluidContainer()) {
-			countMap[static_cast<uint32_t>(itemId) | (item->getAttribute<uint32_t>(ItemAttribute_t::FLUIDTYPE)) << 16] += item->getItemCount();
-		} else {
-			countMap[static_cast<uint32_t>(itemId)] += item->getItemCount();
-		}
-	}
-}
-
 std::shared_ptr<Item> Player::getForgeItemFromId(uint16_t itemId, uint8_t tier) const {
 	for (const auto &item : getAllInventoryItems(true)) {
 		if (item->hasImbuements()) {
@@ -6094,10 +6078,8 @@ void Player::updateSaleShopList() {
 }
 
 void Player::updateState() {
-	updateInventoryWeight();
-	updateItemsLight();
-	sendInventoryIds();
-	sendStats();
+	addScheduledUpdates((PlayerUpdate_Weight | PlayerUpdate_Light | PlayerUpdate_Stats));
+	addScheduledUpdates(PlayerUpdate_Inventory);
 	if (shopOwner) {
 		updateSaleShopList();
 	}
@@ -6748,7 +6730,7 @@ void Player::changeHealth(int32_t healthChange, bool sendHealthChange /* = true*
 	}
 
 	Creature::changeHealth(healthChange, sendHealthChange);
-	sendStats();
+	addScheduledUpdates(PlayerUpdate_Stats);
 }
 
 void Player::changeMana(int32_t manaChange) {
@@ -6760,7 +6742,7 @@ void Player::changeMana(int32_t manaChange) {
 		Creature::changeMana(manaChange);
 	}
 	g_game().addPlayerMana(static_self_cast<Player>());
-	sendStats();
+	addScheduledUpdates(PlayerUpdate_Stats);
 }
 
 void Player::changeSoul(int32_t soulChange) {
@@ -6774,7 +6756,7 @@ void Player::changeSoul(int32_t soulChange) {
 		soul = std::max<int32_t>(0, soul + soulChange);
 	}
 
-	sendStats();
+	addScheduledUpdates(PlayerUpdate_Stats);
 }
 
 bool Player::changeOutfit(Outfit_t outfit, bool checkList) {
@@ -8247,8 +8229,7 @@ bool Player::addOfflineTrainingTries(skills_t skill, uint64_t tries) {
 	}
 
 	if (sendUpdate) {
-		sendSkills();
-		sendStats();
+		addScheduledUpdates((PlayerUpdate_Stats | PlayerUpdate_Skills));
 	}
 
 	std::string message = fmt::format(
@@ -8578,11 +8559,14 @@ void Player::onThink(uint32_t interval) {
 
 	addOfflineTrainingTime(interval);
 	if (lastStatsTrainingTime != getOfflineTrainingTime() / 60 / 1000) {
-		sendStats();
+		addScheduledUpdates(PlayerUpdate_Stats);
 	}
 
 	// Wheel of destiny major spells
 	wheel()->onThink();
+
+	scheduledUpdates = 0;
+	scheduledUpdate = false;
 
 	g_callbacks().executeCallback(EventCallback_t::playerOnThink, &EventCallback::playerOnThink, getPlayer(), interval);
 }
@@ -8595,18 +8579,19 @@ void Player::postAddNotification(const std::shared_ptr<Thing> &thing, const std:
 
 	bool requireListUpdate = true;
 	if (link == LINK_OWNER || link == LINK_TOPPARENT) {
-		const auto &item = oldParent ? oldParent->getItem() : nullptr;
-		const auto &container = item ? item->getContainer() : nullptr;
-		if (container) {
-			requireListUpdate = container->getHoldingPlayer() != getPlayer();
+		const auto &item = (oldParent ? oldParent->getItem() : nullptr);
+
+		// Check if we owned the old container too, so we don't need to do anything,
+		// as the list was updated in postRemoveNotification
+		assert(item ? item->getContainer() != nullptr : true);
+
+		if (item) {
+			requireListUpdate = item->getHoldingPlayer() != getPlayer();
 		} else {
 			requireListUpdate = oldParent != getPlayer();
 		}
 
-		updateInventoryWeight();
-		updateItemsLight();
-		sendInventoryIds();
-		sendStats();
+		addScheduledUpdates((PlayerUpdate_Weight | PlayerUpdate_Light | PlayerUpdate_Stats));
 	}
 
 	if (const auto &item = thing->getItem()) {
@@ -8614,8 +8599,12 @@ void Player::postAddNotification(const std::shared_ptr<Thing> &thing, const std:
 			onSendContainer(container);
 		}
 
-		if (shopOwner && !scheduledSaleUpdate && requireListUpdate) {
-			updateSaleShopList(item);
+		if (requireListUpdate) {
+			addScheduledUpdates(PlayerUpdate_Inventory);
+
+			if (shopOwner && !hasScheduledUpdates(PlayerUpdate_Sale)) {
+				updateSaleShopList(item);
+			}
 		}
 	} else if (const auto &creature = thing->getCreature()) {
 		if (creature == getPlayer()) {
@@ -8645,32 +8634,31 @@ void Player::postRemoveNotification(const std::shared_ptr<Thing> &thing, const s
 		return;
 	}
 
-	const auto copyThing = thing;
-	const auto copyNewParent = newParent;
-
 	if (link == LINK_OWNER) {
-		if (const auto &item = copyThing->getItem()) {
+		if (const auto &item = thing->getItem()) {
 			g_moveEvents().onPlayerDeEquip(getPlayer(), item, static_cast<Slots_t>(index));
 		}
 	}
+
 	bool requireListUpdate = true;
 
 	if (link == LINK_OWNER || link == LINK_TOPPARENT) {
-		const auto &item = copyNewParent ? copyNewParent->getItem() : nullptr;
-		const auto &container = item ? item->getContainer() : nullptr;
-		if (container) {
-			requireListUpdate = container->getHoldingPlayer() != getPlayer();
+		const auto &i = newParent ? newParent->getItem() : nullptr;
+
+		// Check if we owned the old container too, so we don't need to do anything,
+		// as the list was updated in postRemoveNotification
+		assert(i ? i->getContainer() != nullptr : true);
+
+		if (i) {
+			requireListUpdate = i->getContainer()->getHoldingPlayer() != getPlayer();
 		} else {
-			requireListUpdate = copyNewParent != getPlayer();
+			requireListUpdate = newParent != getPlayer();
 		}
 
-		updateInventoryWeight();
-		updateItemsLight();
-		sendInventoryIds();
-		sendStats();
+		addScheduledUpdates((PlayerUpdate_Weight | PlayerUpdate_Light | PlayerUpdate_Stats));
 	}
 
-	if (const auto &item = copyThing->getItem()) {
+	if (const auto &item = thing->getItem()) {
 		if (const auto &container = item->getContainer()) {
 			checkLootContainers(container);
 
@@ -8709,8 +8697,12 @@ void Player::postRemoveNotification(const std::shared_ptr<Thing> &thing, const s
 			requireListUpdate = true;
 		}
 
-		if (shopOwner && !scheduledSaleUpdate && requireListUpdate) {
-			updateSaleShopList(item);
+		if (requireListUpdate) {
+			addScheduledUpdates(PlayerUpdate_Inventory);
+
+			if (shopOwner && !hasScheduledUpdates(PlayerUpdate_Sale)) {
+				updateSaleShopList(item);
+			}
 		}
 	}
 }
@@ -9810,7 +9802,7 @@ uint32_t Player::getLoyaltyPoints() const {
 
 void Player::setLoyaltyBonus(uint16_t bonus) {
 	loyaltyBonusPercent = bonus;
-	sendSkills();
+	addScheduledUpdates(PlayerUpdate_Skills);
 }
 
 void Player::setLoyaltyTitle(std::string title) {
@@ -10274,8 +10266,7 @@ void Player::triggerTranscendence() {
 		wheel()->setOnThinkTimer(WheelOnThink_t::AVATAR_FORGE, OTSYS_TIME() + duration);
 		g_game().addMagicEffect(getPosition(), CONST_ME_AVATAR_APPEAR);
 
-		sendSkills();
-		sendStats();
+		addScheduledUpdates((PlayerUpdate_Stats | PlayerUpdate_Skills));
 		sendBasicData();
 
 		sendTextMessage(MESSAGE_ATTENTION, "Transcendence was triggered.");
@@ -10286,8 +10277,7 @@ void Player::triggerTranscendence() {
 			[playerId = getID()] {
 				const auto &player = g_game().getPlayerByID(playerId);
 				if (player) {
-					player->sendSkills();
-					player->sendStats();
+					player->addScheduledUpdates((PlayerUpdate_Stats | PlayerUpdate_Skills));
 					player->sendBasicData();
 				}
 			},
@@ -12162,6 +12152,25 @@ bool Player::isFirstOnStack() const {
 	return this == bottomPlayer.get();
 }
 
+void Player::addScheduledUpdates(uint32_t flags) {
+	bool shouldSchedule = !scheduledUpdate;
+	scheduledUpdates |= flags;
+
+	if (shouldSchedule) {
+		g_dispatcher().scheduleEvent(
+			SCHEDULER_MINTICKS,
+			[playerId = getID()]() { g_game().updatePlayerEvent(playerId); },
+			__FUNCTION__
+		);
+
+		scheduledUpdate = true;
+	}
+}
+
+bool Player::hasScheduledUpdates(uint32_t flags) const {
+	return (scheduledUpdates & flags);
+}
+
 void Player::sendHarmonyProtocol() const {
 	if (client) {
 		client->sendHarmonyProtocol(m_harmony);
@@ -12205,7 +12214,7 @@ void Player::setSerene(const bool isSerene) {
 	sendSereneProtocol();
 
 	if (getVirtue() == VIRTUE_JUSTICE) {
-		sendSkills();
+		addScheduledUpdates(PlayerUpdate_Skills);
 	}
 }
 
@@ -12247,7 +12256,7 @@ void Player::setVirtue(const VirtueMonk_t virtueEnum) {
 	sendVirtueProtocol();
 
 	if (m_virtue != VIRTUE_NONE) {
-		sendSkills();
+		addScheduledUpdates(PlayerUpdate_Skills);
 	}
 }
 
@@ -12677,8 +12686,7 @@ void Player::applyEquippedWeaponProficiency(const uint16_t itemId) {
 		}
 	}
 
-	sendStats();
-	sendSkills();
+	addScheduledUpdates((PlayerUpdate_Stats | PlayerUpdate_Skills));
 }
 
 void Player::removeEquippedWeaponProficiency(const uint16_t itemId) {
@@ -12696,6 +12704,5 @@ void Player::removeEquippedWeaponProficiency(const uint16_t itemId) {
 
 	equippedWeaponProficiency.reset();
 
-	sendStats();
-	sendSkills();
+	addScheduledUpdates((PlayerUpdate_Stats | PlayerUpdate_Skills));
 }
