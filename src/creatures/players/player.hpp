@@ -1891,6 +1891,22 @@ private:
 	uint64_t m_serene_cooldown = 0;
 	VirtueMonk_t m_virtue = VIRTUE_NONE;
 
+	// Batched tracker updates to reduce I/O and allocations
+	struct BatchedTrackerData {
+		uint64_t lootValue = 0;
+		uint64_t supplyValue = 0;
+		std::vector<std::pair<CombatType_t, int32_t>> impactData;
+		std::vector<std::tuple<CombatType_t, int32_t, std::string>> inputData;
+		std::vector<std::pair<std::shared_ptr<Item>, uint8_t>> lootItems;
+		std::vector<std::shared_ptr<Item>> supplyItems;
+	};
+
+	BatchedTrackerData batchedTrackerData;
+	uint64_t trackerBatchEventId = 0;
+	bool trackerBatchPending = false;
+
+	void flushBatchedTrackerData();
+
 	friend class Game;
 	friend class SaveManager;
 	friend class Npc;

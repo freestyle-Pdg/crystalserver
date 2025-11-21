@@ -1713,6 +1713,10 @@ void Player::updatePartyTrackerAnalyzer() const {
 }
 
 void Player::sendLootStats(const std::shared_ptr<Item> &item, uint8_t count) {
+	// Batch loot stats to reduce I/O and allocations
+	batchedTrackerData.lootItems.emplace_back(item, count);
+
+	// Calculate value for metrics
 	uint64_t value = 0;
 	if (item->getID() == ITEM_GOLD_COIN || item->getID() == ITEM_PLATINUM_COIN || item->getID() == ITEM_CRYSTAL_COIN) {
 		if (item->getID() == ITEM_PLATINUM_COIN) {
@@ -1722,47 +1726,128 @@ void Player::sendLootStats(const std::shared_ptr<Item> &item, uint8_t count) {
 		} else {
 			value = count;
 		}
-	} else if (
-		const auto &npc = g_game().getNpcByName("The Lootmonger")
-	) {
+	} else if (const auto &npc = g_game().getNpcByName("The Lootmonger")) {
 		const auto &iType = Item::items.getItemType(item->getID());
 		value = iType.sellPrice * count;
 	}
-	g_metrics().addCounter("player_loot", value, { { "player", getName() } });
+	batchedTrackerData.lootValue += value;
 
-	if (client) {
-		client->sendLootStats(item, count);
-	}
-
-	if (m_party) {
-		m_party->addPlayerLoot(getPlayer(), item);
+	if (!trackerBatchPending) {
+		trackerBatchPending = true;
+		const auto self = static_self_cast<Player>();
+		trackerBatchEventId = g_dispatcher().scheduleEvent(
+			250, [self] {
+				self->flushBatchedTrackerData();
+			},
+			"Player::flushBatchedTrackerData"
+		);
 	}
 }
 
 void Player::updateSupplyTracker(const std::shared_ptr<Item> &item) {
+	batchedTrackerData.supplyItems.push_back(item);
+
 	const auto &iType = Item::items.getItemType(item->getID());
-	const auto value = iType.buyPrice;
-	g_metrics().addCounter("player_supply", value, { { "player", getName() } });
+	batchedTrackerData.supplyValue += iType.buyPrice;
 
-	if (client) {
-		client->sendUpdateSupplyTracker(item);
-	}
-
-	if (m_party) {
-		m_party->addPlayerSupply(getPlayer(), item);
+	if (!trackerBatchPending) {
+		trackerBatchPending = true;
+		const auto self = static_self_cast<Player>();
+		trackerBatchEventId = g_dispatcher().scheduleEvent(
+			250, [self] {
+				self->flushBatchedTrackerData();
+			},
+			"Player::flushBatchedTrackerData"
+		);
 	}
 }
 
 void Player::updateImpactTracker(CombatType_t type, int32_t amount) const {
-	if (client) {
-		client->sendUpdateImpactTracker(type, amount);
+	const_cast<Player*>(this)->batchedTrackerData.impactData.emplace_back(type, amount);
+
+	if (!trackerBatchPending) {
+		const_cast<Player*>(this)->trackerBatchPending = true;
+		const auto self = const_cast<Player*>(this)->static_self_cast<Player>();
+		const_cast<Player*>(this)->trackerBatchEventId = g_dispatcher().scheduleEvent(
+			250, [self] {
+				self->flushBatchedTrackerData();
+			},
+			"Player::flushBatchedTrackerData"
+		);
 	}
 }
 
 void Player::updateInputAnalyzer(CombatType_t type, int32_t amount, const std::string &target) const {
-	if (client) {
-		client->sendUpdateInputAnalyzer(type, amount, target);
+	const_cast<Player*>(this)->batchedTrackerData.inputData.emplace_back(type, amount, target);
+
+	if (!trackerBatchPending) {
+		const_cast<Player*>(this)->trackerBatchPending = true;
+		const auto self = const_cast<Player*>(this)->static_self_cast<Player>();
+		const_cast<Player*>(this)->trackerBatchEventId = g_dispatcher().scheduleEvent(
+			250, [self] {
+				self->flushBatchedTrackerData();
+			},
+			"Player::flushBatchedTrackerData"
+		);
 	}
+}
+
+void Player::flushBatchedTrackerData() {
+	trackerBatchPending = false;
+
+	for (const auto &[item, count] : batchedTrackerData.lootItems) {
+		uint64_t value = 0;
+		if (item) {
+			if (item->getID() == ITEM_GOLD_COIN || item->getID() == ITEM_PLATINUM_COIN || item->getID() == ITEM_CRYSTAL_COIN) {
+				if (item->getID() == ITEM_PLATINUM_COIN) {
+					value = static_cast<uint64_t>(count) * 100ULL;
+				} else if (item->getID() == ITEM_CRYSTAL_COIN) {
+					value = static_cast<uint64_t>(count) * 10000ULL;
+				} else {
+					value = static_cast<uint64_t>(count);
+				}
+			} else if (const auto &npc = g_game().getNpcByName("The Lootmonger")) {
+				const auto &iType = Item::items.getItemType(item->getID());
+				value = static_cast<uint64_t>(iType.sellPrice) * static_cast<uint64_t>(count);
+			}
+		}
+		if (value > 0) {
+			g_metrics().addCounter("player_loot", value, { { "player", getName() } });
+		}
+		if (client) {
+			client->sendLootStats(item, count);
+		}
+		if (m_party) {
+			m_party->addPlayerLoot(getPlayer(), item);
+		}
+	}
+
+	if (batchedTrackerData.supplyValue > 0) {
+		g_metrics().addCounter("player_supply", batchedTrackerData.supplyValue, { { "player", getName() } });
+	}
+
+	for (const auto &item : batchedTrackerData.supplyItems) {
+		if (client) {
+			client->sendUpdateSupplyTracker(item);
+		}
+		if (m_party) {
+			m_party->addPlayerSupply(getPlayer(), item);
+		}
+	}
+
+	for (const auto &[type, amount] : batchedTrackerData.impactData) {
+		if (client) {
+			client->sendUpdateImpactTracker(type, amount);
+		}
+	}
+
+	for (const auto &[type, amount, target] : batchedTrackerData.inputData) {
+		if (client) {
+			client->sendUpdateInputAnalyzer(type, amount, target);
+		}
+	}
+
+	batchedTrackerData = BatchedTrackerData {};
 }
 
 void Player::createLeaderTeamFinder(NetworkMessage &msg) const {
