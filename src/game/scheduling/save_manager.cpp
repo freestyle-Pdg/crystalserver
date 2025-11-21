@@ -65,10 +65,22 @@ void SaveManager::scheduleAll() {
 
 	threadPool.detach_task([this, scheduledAt]() {
 		if (m_scheduledAt.load() != scheduledAt) {
-			logger.warn("Skipping save for server because another save has been scheduled.");
+			logger.debug("Skipping save for server because another save has been scheduled.");
 			return;
 		}
-		saveAll();
+
+		bool expected = false;
+		if (!m_serverSaving.compare_exchange_strong(expected, true)) {
+			logger.debug("Skipping save for server because a save is already running.");
+			return;
+		}
+		try {
+			saveAll();
+		} catch (...) {
+			m_serverSaving.store(false);
+			// throw;
+		}
+		m_serverSaving.store(false);
 	});
 }
 
@@ -97,8 +109,9 @@ void SaveManager::schedulePlayer(std::weak_ptr<Player> playerPtr) {
 			logger.debug("Skipping save for player because player is no longer online.");
 			return;
 		}
-		if (m_playerMap[player->getGUID()] != scheduledAt) {
-			logger.warn("Skipping save for player because another save has been scheduled.");
+
+		if (auto it = m_playerMap.find(player->getGUID()); it == m_playerMap.end() || it->second != scheduledAt) {
+			logger.debug("Skipping save for player because another save has been scheduled.");
 			return;
 		}
 		doSavePlayer(player);
