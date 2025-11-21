@@ -767,32 +767,43 @@ std::shared_ptr<Inbox> Player::getInbox() const {
 }
 
 std::unordered_set<PlayerIcon> Player::getClientIcons() {
+	// Pre-reserve to avoid rehash and cap at the client limit (9)
 	std::unordered_set<PlayerIcon> icons;
+	icons.reserve(9);
 
+	const auto &tile = getTile();
+	const bool isProtectionZone = (tile && tile->hasFlag(TILESTATE_PROTECTIONZONE));
+
+	// Resting status depends only on PZ state
+	client->sendRestingStatus(isProtectionZone ? 1 : 0);
+
+	// Collect icons from active, non-suppressed conditions
 	for (const auto &condition : conditions) {
-		if (!isSuppress(condition->getType(), false)) {
-			auto conditionIcons = condition->getIcons();
-			icons.insert(conditionIcons.begin(), conditionIcons.end());
-			if (icons.size() == 9) {
+		if (isSuppress(condition->getType(), false)) {
+			continue;
+		}
+
+		const auto &conditionIcons = condition->getIcons();
+		for (const auto icon : conditionIcons) {
+			// If on PZ, skip Swords proactively instead of inserting then erasing
+			if (isProtectionZone && icon == PlayerIcon::Swords) {
+				continue;
+			}
+			icons.insert(icon);
+			if (icons.size() >= 9) {
 				return icons;
 			}
 		}
 	}
 
+	// Add PZ-locked icon when applicable
 	if (pzLocked && icons.size() < 9) {
 		icons.insert(PlayerIcon::RedSwords);
 	}
 
-	const auto &tile = getTile();
-	if (tile && tile->hasFlag(TILESTATE_PROTECTIONZONE)) {
-		if (icons.size() < 9) {
-			icons.insert(PlayerIcon::Pigeon);
-		}
-		client->sendRestingStatus(1);
-
-		icons.erase(PlayerIcon::Swords);
-	} else {
-		client->sendRestingStatus(0);
+	// Add PZ icon at the end if on protection zone
+	if (isProtectionZone && icons.size() < 9) {
+		icons.insert(PlayerIcon::Pigeon);
 	}
 
 	return icons;
@@ -917,56 +928,78 @@ int32_t Player::getCleavePercent(bool useCharges) const {
 }
 
 void Player::updateInventoryWeight() {
+	if (inventoryWeightUpdatePending) {
+		return;
+	}
+
+	inventoryWeightUpdatePending = true;
+	const auto self = static_self_cast<Player>();
+	inventoryWeightScheduledEventId = g_dispatcher().scheduleEvent(
+		SCHEDULER_MINTICKS, [self] {
+			self->computeInventoryWeight();
+		},
+		"Player::updateInventoryWeight(debounced)"
+	);
+}
+
+void Player::updateInventoryImbuement() {
+	if (inventoryImbuementUpdatePending) {
+		return;
+	}
+
+	inventoryImbuementUpdatePending = true;
+	const auto self = static_self_cast<Player>();
+	inventoryImbuementScheduledEventId = g_dispatcher().scheduleEvent(
+		SCHEDULER_MINTICKS, [self] {
+			self->computeInventoryImbuement();
+		},
+		"Player::updateInventoryImbuement(debounced)"
+	);
+}
+
+void Player::computeInventoryWeight() {
+	inventoryWeightUpdatePending = false;
 	if (hasFlag(PlayerFlags_t::HasInfiniteCapacity)) {
 		return;
 	}
 
-	inventoryWeight = 0;
+	uint64_t totalWeight = 0;
 	for (int i = CONST_SLOT_FIRST; i <= CONST_SLOT_LAST; ++i) {
 		const auto &item = inventory[i];
 		if (item) {
-			inventoryWeight += item->getWeight();
+			totalWeight += item->getWeight();
 		}
 	}
+	inventoryWeight = totalWeight;
 }
 
-void Player::updateInventoryImbuement() {
-	// Get the tile the player is currently on
-	const auto &playerTile = getTile();
-	// Check if the player is in a protection zone
-	const bool &isInProtectionZone = playerTile && playerTile->hasFlag(TILESTATE_PROTECTIONZONE);
-	// Check if the player is in fight mode
-	bool isInFightMode = hasCondition(CONDITION_INFIGHT);
-	bool nonAggressiveFightOnly = g_configManager().getBoolean(TOGGLE_IMBUEMENT_NON_AGGRESSIVE_FIGHT_ONLY);
+void Player::computeInventoryImbuement() {
+	inventoryImbuementUpdatePending = false;
 
-	// Iterate through all items in the player's inventory
-	for (const auto &[slodNumber, item] : getAllSlotItems()) {
-		// Iterate through all imbuement slots on the item
-		for (uint8_t slotid = 0; slotid < item->getImbuementSlot(); slotid++) {
+	const auto &playerTile = getTile();
+	const bool isInProtectionZone = playerTile && playerTile->hasFlag(TILESTATE_PROTECTIONZONE);
+	const bool isInFightMode = hasCondition(CONDITION_INFIGHT);
+	const bool nonAggressiveFightOnly = g_configManager().getBoolean(TOGGLE_IMBUEMENT_NON_AGGRESSIVE_FIGHT_ONLY);
+
+	for (const auto &[slotNumber, item] : getAllSlotItems()) {
+		for (uint8_t slotid = 0; slotid < item->getImbuementSlot(); ++slotid) {
 			ImbuementInfo imbuementInfo;
-			// Get the imbuement information for the current slot
 			if (!item->getImbuementInfo(slotid, &imbuementInfo)) {
-				// If no imbuement is found, continue to the next slot
 				continue;
 			}
 
-			// Imbuement from imbuementInfo, this variable reduces code complexity
 			const auto imbuement = imbuementInfo.imbuement;
-			// Get the category of the imbuement
 			const CategoryImbuement* categoryImbuement = g_imbuements().getCategoryByID(imbuement->getCategory());
-			// Parent of the imbued item
 			const auto &parent = item->getParent();
-			const bool &isInBackpack = parent && parent->getContainer();
-			// If the imbuement is aggressive and the player is not in fight mode or is in a protection zone, or the item is in a container, ignore it.
+			const bool isInBackpack = parent && parent->getContainer();
+
 			if (categoryImbuement && (categoryImbuement->agressive || nonAggressiveFightOnly) && (isInProtectionZone || !isInFightMode || isInBackpack)) {
 				continue;
 			}
-			// If the item is not in the backpack slot and it's not a agressive imbuement, ignore it.
 			if (categoryImbuement && !categoryImbuement->agressive && parent && parent != getPlayer()) {
 				continue;
 			}
 
-			// If the imbuement's duration is 0, remove its stats and continue to the next slot
 			if (imbuementInfo.duration == 0) {
 				removeItemImbuementStats(imbuement);
 				updateImbuementTrackerStats();
@@ -974,9 +1007,7 @@ void Player::updateInventoryImbuement() {
 			}
 
 			g_logger().trace("Decaying imbuement {} from item {} of player {}", imbuement->getName(), item->getName(), getName());
-			// Calculate the new duration of the imbuement, making sure it doesn't go below 0
 			const uint32_t duration = std::max<uint32_t>(0, imbuementInfo.duration - EVENT_IMBUEMENT_AND_SERENE_STATUS_INTERVAL / 1000);
-			// Update the imbuement's duration in the item
 			item->decayImbuementTime(slotid, imbuement->getID(), duration);
 
 			if (duration == 0) {
@@ -988,14 +1019,15 @@ void Player::updateInventoryImbuement() {
 }
 
 phmap::flat_hash_map<uint8_t, std::shared_ptr<Item>> Player::getAllSlotItems() const {
+	// Pre-reserve to avoid rehashing; small fixed range of slots
 	phmap::flat_hash_map<uint8_t, std::shared_ptr<Item>> itemMap;
-	for (uint8_t i = CONST_SLOT_FIRST; i <= CONST_SLOT_LAST; ++i) {
-		const auto &item = inventory[i];
-		if (!item) {
-			continue;
-		}
+	itemMap.reserve(static_cast<size_t>(CONST_SLOT_LAST - CONST_SLOT_FIRST + 1));
 
-		itemMap[i] = item;
+	for (uint8_t slotIndex = CONST_SLOT_FIRST; slotIndex <= CONST_SLOT_LAST; ++slotIndex) {
+		const auto &item = inventory[slotIndex];
+		if (item) {
+			itemMap.try_emplace(slotIndex, item);
+		}
 	}
 
 	return itemMap;

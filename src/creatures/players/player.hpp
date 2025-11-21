@@ -1685,6 +1685,14 @@ private:
 	int64_t lastWalking = 0;
 	uint64_t asyncOngoingTasks = 0;
 
+	// Debounced inventory recomputation helpers
+	void computeInventoryWeight();
+	void computeInventoryImbuement();
+	uint64_t inventoryWeightScheduledEventId = 0;
+	uint64_t inventoryImbuementScheduledEventId = 0;
+	bool inventoryWeightUpdatePending = false;
+	bool inventoryImbuementUpdatePending = false;
+
 	std::vector<Kill> unjustifiedKills;
 
 	std::shared_ptr<BedItem> bedItem = nullptr;
