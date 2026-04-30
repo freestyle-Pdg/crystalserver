@@ -44,6 +44,7 @@
 #include "server/network/protocol/protocolstatus.hpp"
 #include "server/network/webhook/webhook.hpp"
 #include "creatures/players/vocations/vocation.hpp"
+#include "utils/stats.hpp"
 
 CrystalServer::CrystalServer(
 	Logger &logger,
@@ -90,6 +91,10 @@ int CrystalServer::run() {
 				loadModules();
 				setWorldType();
 				loadMaps();
+
+#ifdef STATS_ENABLED
+				g_stats().start();
+#endif
 
 				logger.info("Initializing gamestate...");
 				g_game().setGameState(GAME_STATE_INIT);
@@ -153,6 +158,10 @@ int CrystalServer::run() {
 	g_logger().setLevel(g_configManager().getString(LOGLEVEL));
 
 	serviceManager.run();
+
+#ifdef STATS_ENABLED
+	g_stats().join();
+#endif
 
 	shutdown();
 	return EXIT_SUCCESS;

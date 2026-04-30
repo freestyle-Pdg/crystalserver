@@ -713,6 +713,12 @@ metricsPrometheusAddress = "0.0.0.0:9464"
 metricsEnableOstream = false
 metricsOstreamInterval = 1000
 
+-- OTS Statistics
+-- NOTE: time in seconds: 30 = 30 seconds, 0 = disabled
+statsDumpInterval = 30
+statsSlowLogTime = 10
+statsVerySlowLogTime = 50
+
 -- OTC Features
 -- NOTE: Features added in this list will be forced to be used on OTCR
 -- These features can be found in "modules/gamelib/const.lua"

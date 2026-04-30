@@ -185,6 +185,8 @@ bool ConfigManager::load() {
 	loadBoolConfig(L, UNLOCK_ALL_FAMILIARS, "unlockAllFamiliars", false);
 	loadBoolConfig(L, LEAVE_PARTY_ON_DEATH, "leavePartyOnDeath", false);
 	loadBoolConfig(L, TOGGLE_SPECIAL_TILES, "toggleSpecialTiles", false);
+	loadBoolConfig(L, STATS_TRACK_LUA_ADD_EVENTS, "statsTrackLuaAddEvents", false);
+	loadBoolConfig(L, STATS_TRACK_LUA_ADD_EVENTS_HASHES, "statsTrackLuaAddEventsHashes", false);
 	loadBoolConfig(L, TOGGLE_GUILDHALL_NEED_GUILD, "toggleGuildHallNeedGuild", true);
 	loadBoolConfig(L, TOGGLE_MAX_CONNECTIONS_BY_IP, "toggleMaxConnectionsByIP", false);
 	loadBoolConfig(L, TOGGLE_GUILD_WARS, "toggleGuildWars", false);
@@ -406,6 +408,9 @@ bool ConfigManager::load() {
 	loadIntConfig(L, MARKET_ACTIONS_DELAY_INTERVAL, "marketActionsDelay", 1000);
 	loadIntConfig(L, IMBUEMENT_ACTIONS_DELAY_INTERVAL, "imbueActionsDelay", 1000);
 	loadIntConfig(L, EXPERIENCE_SHARE_ACTIVITY, "experienceShareActivity", 2 * 60 * 1000);
+	loadIntConfig(L, STATS_DUMP_INTERVAL, "statsDumpInterval", 30000);
+	loadIntConfig(L, STATS_SLOW_LOG_TIME, "statsSlowLogTime", 10);
+	loadIntConfig(L, STATS_VERY_SLOW_LOG_TIME, "statsVerySlowLogTime", 50);
 	loadIntConfig(L, MAX_HOUSES_LIMIT, "maxHousesLimit", 3);
 	loadIntConfig(L, MAX_IP_CONNECTIONS, "maxIPConnections", 4);
 	loadIntConfig(L, STASH_MANAGE_AMOUNT, "stashManageAmount", 100000);

@@ -33,8 +33,8 @@
 #include "lua/functions/map/map_functions.hpp"
 #include "lua/functions/core/game/zone_functions.hpp"
 #include "lua/global/lua_variant.hpp"
-
 #include "enums/lua_variant_type.hpp"
+#include "utils/stats.hpp"
 
 class LuaScriptInterface;
 
@@ -101,6 +101,16 @@ std::string Lua::getErrorDesc(ErrorCode_t code) {
 }
 
 int Lua::protectedCall(lua_State* L, int nargs, int nresults) {
+#ifdef STATS_ENABLED
+	int32_t scriptId;
+	int32_t callbackId;
+	bool timerEvent;
+	// auto [scriptId, scriptInterface, callbackId, timerEvent] = getScriptEnv()->getEventInfo();
+	LuaScriptInterface* scriptInterface;
+	getScriptEnv()->getEventInfo(scriptId, scriptInterface, callbackId, timerEvent);
+	std::chrono::high_resolution_clock::time_point time_point = std::chrono::high_resolution_clock::now();
+#endif
+
 	if (const int ret = validateDispatcherContext(__FUNCTION__); ret != 0) {
 		return ret;
 	}
@@ -111,6 +121,33 @@ int Lua::protectedCall(lua_State* L, int nargs, int nresults) {
 
 	const int ret = lua_pcall(L, nargs, nresults, error_index);
 	lua_remove(L, error_index);
+
+#ifdef STATS_ENABLED
+	uint64_t ns = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - time_point).count();
+	if (scriptInterface) {
+		std::string label;
+		if (scriptId == EVENT_ID_LOADING) {
+			label = scriptInterface->getLoadingFile();
+		} else if (scriptId == EVENT_ID_USER) {
+			label = "user";
+		} else if (scriptId == 0) {
+			label = timerEvent ? std::string("LuaAddEvent") : scriptInterface->getInterfaceName();
+		} else {
+			label = scriptInterface->getFileById(scriptId);
+			if (label == "(Unknown scriptfile)") {
+				label = timerEvent ? std::string("LuaAddEvent") : scriptInterface->getInterfaceName();
+			}
+		}
+
+		for (auto &ch : label) {
+			if (ch == '\\') {
+				ch = '/';
+			}
+		}
+		g_stats().addLuaStats(new Stat(ns, label, ""));
+	}
+#endif
+
 	return ret;
 }
 

@@ -22,6 +22,8 @@
 #include "lua/scripts/script_environment.hpp"
 #include "lua/global/lua_timer_event_descr.hpp"
 #include "lib/di/container.hpp"
+#include "utils/stats.hpp"
+#include "config/configmanager.hpp"
 
 bool LuaEnvironment::shuttingDown = false;
 
@@ -88,6 +90,9 @@ bool LuaEnvironment::closeState() {
 	areaIdMap.clear();
 	timerEvents.clear();
 	cacheFiles.clear();
+#ifdef STATS_ENABLED
+	addEventStackTracebackHashCache.clear();
+#endif
 
 	lua_close(luaState);
 	luaState = nullptr;
@@ -150,10 +155,33 @@ void LuaEnvironment::executeTimerEvent(uint32_t eventIndex) {
 
 	// call the function
 	if (reserveScriptEnv()) {
+#ifdef STATS_ENABLED
+		std::chrono::high_resolution_clock::time_point time_point = std::chrono::high_resolution_clock::now();
+#endif
 		ScriptEnvironment* env = getScriptEnv();
 		env->setTimerEvent();
 		env->setScriptId(timerEventDesc.scriptId, this);
+#ifdef STATS_ENABLED
+		if (g_configManager().getBoolean(STATS_TRACK_LUA_ADD_EVENTS_HASHES)) {
+			env->setEventTag(getAddEventStackTracebackHash(timerEventDesc.stackTraceback));
+		} else {
+			if (!timerEventDesc.scriptName.empty()) {
+				env->setEventTag(timerEventDesc.scriptName);
+			} else {
+				env->setEventTag("LuaAddEvent");
+			}
+		}
+#endif
+
 		callFunction(timerEventDesc.parameters.size());
+
+#ifdef STATS_ENABLED
+		uint64_t ns = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - time_point).count();
+		if (g_configManager().getBoolean(STATS_TRACK_LUA_ADD_EVENTS)) {
+			g_stats().addSpecialStats(new Stat(ns, getAddEventStackTracebackHash(timerEventDesc.stackTraceback), timerEventDesc.stackTraceback));
+		}
+#endif
+
 	} else {
 		g_logger().error("[LuaEnvironment::executeTimerEvent - Lua file {}] "
 		                 "Call stack overflow. Too many lua script calls being nested",

@@ -17,22 +17,41 @@
 
 #pragma once
 
-#ifndef USE_PRECOMPILED_HEADERS
-	#include <cstdint>
-	#include <list>
-	#include <string>
-#endif
+enum ThreadState {
+	THREAD_STATE_RUNNING,
+	THREAD_STATE_CLOSING,
+	THREAD_STATE_TERMINATED,
+};
 
-struct LuaTimerEventDesc {
-	int32_t scriptId = -1;
-	std::string scriptName;
-	int32_t function = -1;
-	std::list<int32_t> parameters;
-	uint32_t eventId = 0;
-#ifdef STATS_ENABLED
-	std::string stackTraceback;
-#endif
+template <typename Derived>
+class ThreadHolder {
+public:
+	ThreadHolder() { }
+	void start() {
+		setState(THREAD_STATE_RUNNING);
+		thread = std::thread(&Derived::threadMain, static_cast<Derived*>(this));
+	}
 
-	LuaTimerEventDesc() = default;
-	LuaTimerEventDesc(LuaTimerEventDesc &&other) = default;
+	void stop() {
+		setState(THREAD_STATE_CLOSING);
+	}
+
+	void join() {
+		if (thread.joinable()) {
+			thread.join();
+		}
+	}
+
+protected:
+	void setState(ThreadState newState) {
+		threadState.store(newState, std::memory_order_relaxed);
+	}
+
+	ThreadState getState() const {
+		return threadState.load(std::memory_order_relaxed);
+	}
+
+private:
+	std::atomic<ThreadState> threadState { THREAD_STATE_TERMINATED };
+	std::thread thread;
 };
