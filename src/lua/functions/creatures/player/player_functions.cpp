@@ -60,6 +60,7 @@ void PlayerFunctions::init(lua_State* L) {
 	Lua::registerMethod(L, "Player", "addCharmPoints", PlayerFunctions::luaPlayeraddCharmPoints);
 	Lua::registerMethod(L, "Player", "addMinorCharmEchoes", PlayerFunctions::luaPlayerAddMinorCharmEchoes);
 	Lua::registerMethod(L, "Player", "getCharmTier", PlayerFunctions::luaPlayerGetCharmTier);
+	Lua::registerMethod(L, "Player", "getTierByCharmsArray", PlayerFunctions::luaPlayerGetCharmTier);
 	Lua::registerMethod(L, "Player", "getCharmChance", PlayerFunctions::luaPlayerGetCharmChance);
 	Lua::registerMethod(L, "Player", "resetOldCharms", PlayerFunctions::luaPlayerResetOldCharms);
 	Lua::registerMethod(L, "Player", "isPlayer", PlayerFunctions::luaPlayerIsPlayer);
@@ -77,6 +78,9 @@ void PlayerFunctions::init(lua_State* L) {
 	Lua::registerMethod(L, "Player", "addBestiaryKill", PlayerFunctions::luaPlayerAddBestiaryKill);
 	Lua::registerMethod(L, "Player", "charmExpansion", PlayerFunctions::luaPlayercharmExpansion);
 	Lua::registerMethod(L, "Player", "getCharmMonsterType", PlayerFunctions::luaPlayergetCharmMonsterType);
+	Lua::registerMethod(L, "Player", "weeklyTaskExpansion", PlayerFunctions::luaPlayerWeeklyTaskExpansion);
+	Lua::registerMethod(L, "Player", "resetWeeklyTasks", PlayerFunctions::luaPlayerResetWeeklyTasks);
+	Lua::registerMethod(L, "Player", "performWeeklyReset", PlayerFunctions::luaPlayerPerformWeeklyReset);
 
 	Lua::registerMethod(L, "Player", "isMonsterPrey", PlayerFunctions::luaPlayerisMonsterPrey);
 	Lua::registerMethod(L, "Player", "getPreyCards", PlayerFunctions::luaPlayerGetPreyCards);
@@ -89,6 +93,16 @@ void PlayerFunctions::init(lua_State* L) {
 	Lua::registerMethod(L, "Player", "removeTaskHuntingPoints", PlayerFunctions::luaPlayerRemoveTaskHuntingPoints);
 	Lua::registerMethod(L, "Player", "getTaskHuntingPoints", PlayerFunctions::luaPlayerGetTaskHuntingPoints);
 	Lua::registerMethod(L, "Player", "addTaskHuntingPoints", PlayerFunctions::luaPlayerAddTaskHuntingPoints);
+
+	Lua::registerMethod(L, "Player", "getBountyPoints", PlayerFunctions::luaPlayerGetBountyPoints);
+	Lua::registerMethod(L, "Player", "addBountyPoints", PlayerFunctions::luaPlayerAddBountyPoints);
+	Lua::registerMethod(L, "Player", "removeBountyPoints", PlayerFunctions::luaPlayerRemoveBountyPoints);
+	Lua::registerMethod(L, "Player", "getRerollTasks", PlayerFunctions::luaPlayerGetRerollTasks);
+	Lua::registerMethod(L, "Player", "addRerollTasks", PlayerFunctions::luaPlayerAddRerollTasks);
+	Lua::registerMethod(L, "Player", "removeRerollTasks", PlayerFunctions::luaPlayerRemoveRerollTasks);
+	Lua::registerMethod(L, "Player", "getSoulsealsPoints", PlayerFunctions::luaPlayerGetSoulsealsPoints);
+	Lua::registerMethod(L, "Player", "addSoulsealsPoints", PlayerFunctions::luaPlayerAddSoulsealsPoints);
+	Lua::registerMethod(L, "Player", "removeSoulsealsPoints", PlayerFunctions::luaPlayerRemoveSoulsealsPoints);
 
 	Lua::registerMethod(L, "Player", "getCapacity", PlayerFunctions::luaPlayerGetCapacity);
 	Lua::registerMethod(L, "Player", "setCapacity", PlayerFunctions::luaPlayerSetCapacity);
@@ -161,6 +175,7 @@ void PlayerFunctions::init(lua_State* L) {
 
 	Lua::registerMethod(L, "Player", "getOfflineTrainingSkill", PlayerFunctions::luaPlayerGetOfflineTrainingSkill);
 	Lua::registerMethod(L, "Player", "setOfflineTrainingSkill", PlayerFunctions::luaPlayerSetOfflineTrainingSkill);
+	Lua::registerMethod(L, "Player", "sendOfflineTrainingDialog", PlayerFunctions::luaPlayerSendOfflineTrainingDialog);
 
 	Lua::registerMethod(L, "Player", "getItemCount", PlayerFunctions::luaPlayerGetItemCount);
 	Lua::registerMethod(L, "Player", "getStashItemCount", PlayerFunctions::luaPlayerGetStashItemCount);
@@ -376,9 +391,12 @@ void PlayerFunctions::init(lua_State* L) {
 	Lua::registerMethod(L, "Player", "getSlotBossId", PlayerFunctions::luaPlayerGetSlotBossId);
 	Lua::registerMethod(L, "Player", "getBossBonus", PlayerFunctions::luaPlayerGetBossBonus);
 	Lua::registerMethod(L, "Player", "sendBosstiaryCooldownTimer", PlayerFunctions::luaPlayerBosstiaryCooldownTimer);
+	Lua::registerMethod(L, "Player", "sendSoulSealsWindow", PlayerFunctions::luaPlayerSendSoulSealsWindow);
 
 	Lua::registerMethod(L, "Player", "sendSingleSoundEffect", PlayerFunctions::luaPlayerSendSingleSoundEffect);
 	Lua::registerMethod(L, "Player", "sendDoubleSoundEffect", PlayerFunctions::luaPlayerSendDoubleSoundEffect);
+	Lua::registerMethod(L, "Player", "sendAmbientSoundEffect", PlayerFunctions::luaPlayerSendAmbientSoundEffect);
+	Lua::registerMethod(L, "Player", "sendMusicSoundEffect", PlayerFunctions::luaPlayerSendMusicSoundEffect);
 
 	Lua::registerMethod(L, "Player", "getName", PlayerFunctions::luaPlayerGetName);
 	Lua::registerMethod(L, "Player", "changeName", PlayerFunctions::luaPlayerChangeName);
@@ -428,7 +446,9 @@ void PlayerFunctions::init(lua_State* L) {
 	// Store Summary
 	Lua::registerMethod(L, "Player", "createTransactionSummary", PlayerFunctions::luaPlayerCreateTransactionSummary);
 
-	Lua::registerMethod(L, "Player", "takeScreenshot", PlayerFunctions::luaPlayerTakeScreenshot);
+	Lua::registerMethod(L, "Player", "sendBannerType", PlayerFunctions::luaPlayersendBannerType);
+	Lua::registerMethod(L, "Player", "sendQuestProgress", PlayerFunctions::luaPlayerSendQuestStatusUpdate);
+
 	Lua::registerMethod(L, "Player", "sendIconBakragore", PlayerFunctions::luaPlayerSendIconBakragore);
 	Lua::registerMethod(L, "Player", "removeIconBakragore", PlayerFunctions::luaPlayerRemoveIconBakragore);
 	Lua::registerMethod(L, "Player", "sendCreatureAppear", PlayerFunctions::luaPlayerSendCreatureAppear);
@@ -660,8 +680,8 @@ int PlayerFunctions::luaPlayerResetCharmsMonsters(lua_State* L) {
 		player->setCharmExpansion(false);
 		player->setUsedRunesBit(0);
 		player->setUnlockedRunesBit(0);
-		for (int8_t i = CHARM_WOUND; i <= CHARM_LAST; i++) {
-			player->parseRacebyCharm(static_cast<charmRune_t>(i), true, 0);
+		for (int8_t i = magic_enum::enum_value<charmRune_t>(1); i <= magic_enum::enum_count<charmRune_t>(); i++) {
+			player->setRaceIdByCharmsArray(static_cast<charmRune_t>(i), 0);
 		}
 		Lua::pushBoolean(L, true);
 	} else {
@@ -674,9 +694,8 @@ int PlayerFunctions::luaPlayerUnlockAllCharmRunes(lua_State* L) {
 	// player:unlockAllCharmRunes()
 	const auto &player = Lua::getUserdataShared<Player>(L, 1);
 	if (player) {
-		for (int8_t i = CHARM_WOUND; i <= CHARM_LAST; i++) {
-			const auto charm = g_iobestiary().getBestiaryCharm(static_cast<charmRune_t>(i));
-			if (charm) {
+		for (int8_t i = magic_enum::enum_value<charmRune_t>(1); i <= magic_enum::enum_count<charmRune_t>(); i++) {
+			if (const auto &charm = g_iobestiary().getBestiaryCharm(static_cast<charmRune_t>(i))) {
 				const int32_t value = g_iobestiary().bitToggle(player->getUnlockedRunesBit(), charm, true);
 				player->setUnlockedRunesBit(value);
 			}
@@ -715,7 +734,7 @@ int PlayerFunctions::luaPlayerGetCharmTier(lua_State* L) {
 	}
 
 	charmRune_t charmId = Lua::getNumber<charmRune_t>(L, 2);
-	Lua::pushNumber(L, player->getCharmTier(charmId));
+	Lua::pushNumber(L, player->getTierByCharmsArray(charmId));
 	return 1;
 }
 
@@ -729,7 +748,14 @@ int PlayerFunctions::luaPlayerGetCharmChance(lua_State* L) {
 
 	charmRune_t charmId = Lua::getNumber<charmRune_t>(L, 2);
 	const auto &charm = g_iobestiary().getBestiaryCharm(charmId);
-	uint8_t charmTier = player->getCharmTier(charmId);
+	if (!charm) {
+		Lua::pushNumber(L, 0);
+		return 1;
+	}
+
+	uint8_t charmTier = player->getTierByCharmsArray(charmId);
+	double chance = charm->getChance(charmTier);
+	Lua::pushNumber(L, chance);
 	return 1;
 }
 
@@ -910,7 +936,7 @@ int PlayerFunctions::luaPlayergetCharmMonsterType(lua_State* L) {
 	const auto &player = Lua::getUserdataShared<Player>(L, 1);
 	if (player) {
 		const charmRune_t charmid = Lua::getNumber<charmRune_t>(L, 2);
-		const uint16_t raceid = player->parseRacebyCharm(charmid, false, 0);
+		const uint16_t raceid = player->getRaceIdByCharmsArray(charmid);
 		if (raceid > 0) {
 			const auto &mtype = g_monsters().getMonsterTypeByRaceId(raceid);
 			if (mtype) {
@@ -926,6 +952,7 @@ int PlayerFunctions::luaPlayergetCharmMonsterType(lua_State* L) {
 		lua_pushnil(L);
 	}
 	return 1;
+	;
 }
 
 int PlayerFunctions::luaPlayerRemovePreyStamina(lua_State* L) {
@@ -1005,6 +1032,119 @@ int PlayerFunctions::luaPlayerAddTaskHuntingPoints(lua_State* L) {
 		const auto points = Lua::getNumber<uint64_t>(L, 2);
 		player->addTaskHuntingPoints(Lua::getNumber<uint64_t>(L, 2));
 		lua_pushnumber(L, static_cast<lua_Number>(points));
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int PlayerFunctions::luaPlayerGetBountyPoints(lua_State* L) {
+	// player:getBountyPoints()
+	const auto &player = Lua::getUserdataShared<Player>(L, 1);
+	if (player == nullptr) {
+		Lua::reportErrorFunc(Lua::getErrorDesc(LUA_ERROR_PLAYER_NOT_FOUND));
+		lua_pushnil(L);
+		return 1;
+	}
+
+	lua_pushnumber(L, static_cast<lua_Number>(player->getBountyPoints()));
+	return 1;
+}
+
+int PlayerFunctions::luaPlayerAddBountyPoints(lua_State* L) {
+	// player:addBountyPoints(amount)
+	if (const auto &player = Lua::getUserdataShared<Player>(L, 1)) {
+		const auto points = Lua::getNumber<uint32_t>(L, 2);
+		player->addBountyPoints(points);
+		lua_pushnumber(L, static_cast<lua_Number>(points));
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int PlayerFunctions::luaPlayerRemoveBountyPoints(lua_State* L) {
+	// player:removeBountyPoints(amount)
+	if (const auto &player = Lua::getUserdataShared<Player>(L, 1)) {
+		const auto points = Lua::getNumber<uint32_t>(L, 2);
+		player->removeBountyPoints(points);
+		Lua::pushBoolean(L, true);
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int PlayerFunctions::luaPlayerGetRerollTasks(lua_State* L) {
+	// player:getRerollTasks()
+	const auto &player = Lua::getUserdataShared<Player>(L, 1);
+	if (player == nullptr) {
+		Lua::reportErrorFunc(Lua::getErrorDesc(LUA_ERROR_PLAYER_NOT_FOUND));
+		lua_pushnil(L);
+		return 1;
+	}
+
+	lua_pushnumber(L, static_cast<lua_Number>(player->getRerollTasks()));
+	return 1;
+}
+
+int PlayerFunctions::luaPlayerAddRerollTasks(lua_State* L) {
+	// player:addRerollTasks(amount)
+	if (const auto &player = Lua::getUserdataShared<Player>(L, 1)) {
+		const auto tokens = Lua::getNumber<uint32_t>(L, 2);
+		player->addRerollTasks(tokens);
+		lua_pushnumber(L, static_cast<lua_Number>(tokens));
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int PlayerFunctions::luaPlayerRemoveRerollTasks(lua_State* L) {
+	// player:removeRerollTasks(amount)
+	if (const auto &player = Lua::getUserdataShared<Player>(L, 1)) {
+		player->removeRerollTasks(Lua::getNumber<uint32_t>(L, 2));
+		Lua::pushBoolean(L, true);
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int PlayerFunctions::luaPlayerGetSoulsealsPoints(lua_State* L) {
+	// player:getSoulsealsPoints()
+	const auto &player = Lua::getUserdataShared<Player>(L, 1);
+	if (player == nullptr) {
+		Lua::reportErrorFunc(Lua::getErrorDesc(LUA_ERROR_PLAYER_NOT_FOUND));
+		Lua::pushBoolean(L, false);
+		return 1;
+	}
+
+	lua_pushnumber(L, static_cast<lua_Number>(player->getSoulsealsPoints()));
+	return 1;
+}
+
+int PlayerFunctions::luaPlayerAddSoulsealsPoints(lua_State* L) {
+	// player:addSoulsealsPoints(amount)
+	if (const auto &player = Lua::getUserdataShared<Player>(L, 1)) {
+		player->addSoulsealsPoints(Lua::getNumber<uint32_t>(L, 2));
+		lua_pushnumber(L, static_cast<lua_Number>(player->getSoulsealsPoints()));
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int PlayerFunctions::luaPlayerRemoveSoulsealsPoints(lua_State* L) {
+	// player:removeSoulsealsPoints(amount)
+	if (const auto &player = Lua::getUserdataShared<Player>(L, 1)) {
+		const auto amount = Lua::getNumber<uint32_t>(L, 2);
+		if (player->getSoulsealsPoints() < amount) {
+			Lua::pushBoolean(L, false);
+		} else {
+			player->removeSoulsealsPoints(amount);
+			Lua::pushBoolean(L, true);
+		}
 	} else {
 		lua_pushnil(L);
 	}
@@ -1103,6 +1243,52 @@ int PlayerFunctions::luaPlayercharmExpansion(lua_State* L) {
 			player->setCharmExpansion(Lua::getBoolean(L, 2, false));
 			Lua::pushBoolean(L, true);
 		}
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int PlayerFunctions::luaPlayerWeeklyTaskExpansion(lua_State* L) {
+	// get: player:weeklyTaskExpansion() set: player:weeklyTaskExpansion(bool)
+	const auto &player = Lua::getUserdataShared<Player>(L, 1);
+	if (player) {
+		if (lua_gettop(L) == 1) {
+			Lua::pushBoolean(L, player->hasWeeklyTaskExpansion());
+		} else {
+			player->setWeeklyTaskExpansion(Lua::getBoolean(L, 2, false));
+			Lua::pushBoolean(L, true);
+		}
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int PlayerFunctions::luaPlayerResetWeeklyTasks(lua_State* L) {
+	// player:resetWeeklyTasks() - resets weekly tasks and shows the finished screen
+	// The client will then show the difficulty selection after the player confirms
+	const auto &player = Lua::getUserdataShared<Player>(L, 1);
+	if (player) {
+		g_ioweeklytasks().resetWeeklyTaskData(player);
+		player->sendWeeklyTaskData();
+		Lua::pushBoolean(L, true);
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int PlayerFunctions::luaPlayerPerformWeeklyReset(lua_State* L) {
+	// player:performWeeklyReset() - distributes weekly rewards and resets tasks
+	const auto &player = Lua::getUserdataShared<Player>(L, 1);
+	if (player) {
+		auto &weeklyData = player->getWeeklyTaskData();
+		if (!weeklyData.killTasks.empty() && weeklyData.weeklyProgressFinished == 0) {
+			g_ioweeklytasks().performWeeklyReset(player);
+			player->sendWeeklyTaskData();
+		}
+		Lua::pushBoolean(L, true);
 	} else {
 		lua_pushnil(L);
 	}
@@ -1819,6 +2005,18 @@ int PlayerFunctions::luaPlayerSetOfflineTrainingSkill(lua_State* L) {
 	if (player) {
 		const int8_t skillId = Lua::getNumber<int8_t>(L, 2);
 		player->setOfflineTrainingSkill(skillId);
+		Lua::pushBoolean(L, true);
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+int PlayerFunctions::luaPlayerSendOfflineTrainingDialog(lua_State* L) {
+	// player:sendOfflineTrainingDialog()
+	const auto &player = Lua::getUserdataShared<Player>(L, 1);
+	if (player) {
+		g_game().sendOfflineTrainingDialog(player);
 		Lua::pushBoolean(L, true);
 	} else {
 		lua_pushnil(L);
@@ -4236,6 +4434,20 @@ int PlayerFunctions::luaPlayerBosstiaryCooldownTimer(lua_State* L) {
 	return 1;
 }
 
+int PlayerFunctions::luaPlayerSendSoulSealsWindow(lua_State* L) {
+	// player:sendSoulSealsWindow()
+	const auto &player = Lua::getUserdataShared<Player>(L, 1);
+	if (!player) {
+		Lua::reportErrorFunc(Lua::getErrorDesc(LUA_ERROR_PLAYER_NOT_FOUND));
+		Lua::pushBoolean(L, false);
+		return 0;
+	}
+
+	player->sendSoulSealsWindow();
+	Lua::pushBoolean(L, true);
+	return 1;
+}
+
 int PlayerFunctions::luaPlayerGetBosstiaryLevel(lua_State* L) {
 	// player:getBosstiaryLevel(name)
 	if (const auto &player = Lua::getUserdataShared<Player>(L, 1);
@@ -4393,6 +4605,36 @@ int PlayerFunctions::luaPlayerSendDoubleSoundEffect(lua_State* L) {
 	const bool actor = Lua::getBoolean(L, 4, true);
 
 	player->sendDoubleSoundEffect(player->getPosition(), mainSoundEffect, actor ? SourceEffect_t::OWN : SourceEffect_t::GLOBAL, secondarySoundEffect, actor ? SourceEffect_t::OWN : SourceEffect_t::GLOBAL);
+	Lua::pushBoolean(L, true);
+	return 1;
+}
+
+int PlayerFunctions::luaPlayerSendAmbientSoundEffect(lua_State* L) {
+	// player:sendAmbientSoundEffect(id)
+	const auto &player = Lua::getUserdataShared<Player>(L, 1);
+	if (!player) {
+		Lua::reportErrorFunc(Lua::getErrorDesc(LUA_ERROR_PLAYER_NOT_FOUND));
+		Lua::pushBoolean(L, false);
+		return 0;
+	}
+
+	const SoundAmbientEffect_t id = Lua::getNumber<SoundAmbientEffect_t>(L, 2);
+	player->sendAmbientSoundEffect(id);
+	Lua::pushBoolean(L, true);
+	return 1;
+}
+
+int PlayerFunctions::luaPlayerSendMusicSoundEffect(lua_State* L) {
+	// player:sendMusicSoundEffect(id)
+	const auto &player = Lua::getUserdataShared<Player>(L, 1);
+	if (!player) {
+		Lua::reportErrorFunc(Lua::getErrorDesc(LUA_ERROR_PLAYER_NOT_FOUND));
+		Lua::pushBoolean(L, false);
+		return 0;
+	}
+
+	const SoundMusicEffect_t id = Lua::getNumber<SoundMusicEffect_t>(L, 2);
+	player->sendMusicSoundEffect(id);
 	Lua::pushBoolean(L, true);
 	return 1;
 }
@@ -4919,7 +5161,7 @@ int PlayerFunctions::luaPlayerAddAchievement(lua_State* L) {
 
 	const bool success = player->achiev()->add(achievementId, Lua::getBoolean(L, 3, true));
 	if (success) {
-		player->sendTakeScreenshot(SCREENSHOT_TYPE_ACHIEVEMENT);
+		player->sendScreenshotAndBannerUnlockedAchievement(achievementId);
 	}
 
 	Lua::pushBoolean(L, success);
@@ -5078,18 +5320,31 @@ int PlayerFunctions::luaPlayerCreateTransactionSummary(lua_State* L) {
 	return 1;
 }
 
-int PlayerFunctions::luaPlayerTakeScreenshot(lua_State* L) {
-	// player:takeScreenshot(screenshotType)
+int PlayerFunctions::luaPlayersendBannerType(lua_State* L) {
+	// player:sendBannerType(bannerType)
 	const auto &player = Lua::getUserdataShared<Player>(L, 1);
 	if (!player) {
 		lua_pushnil(L);
 		return 1;
 	}
 
-	const auto screenshotType = Lua::getNumber<Screenshot_t>(L, 2);
-	player->sendTakeScreenshot(screenshotType);
+	const auto bannerType = Lua::getNumber<Banner_t>(L, 2);
+	player->sendBannerType(bannerType);
 	Lua::pushBoolean(L, true);
 	return 1;
+}
+
+int PlayerFunctions::luaPlayerSendQuestStatusUpdate(lua_State* L) {
+	// player:sendQuestProgress(questName, isCompleted)
+	const auto &player = Lua::getUserdataShared<Player>(L, 1);
+	if (!player) {
+		lua_pushnil(L);
+		return 1;
+	}
+
+	player->sendScreenshotAndBannerProgressQuest(Lua::getString(L, 2), Lua::getBoolean(L, 3, false));
+	Lua::pushBoolean(L, true);
+	return 0;
 }
 
 int PlayerFunctions::luaPlayerSendIconBakragore(lua_State* L) {
