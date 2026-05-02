@@ -49,50 +49,72 @@ jobs:
         uses: actions/checkout@main
 
       - name: Install Linux Dependencies
-        run: >
-          sudo apt-get update && sudo apt-get install ccache linux-headers-"$(uname -r)"
+        run: |
+          retry() {
+            local attempts=$1
+            shift
+            local n=1
+            until "$@"; do
+              if [ "$n" -ge "$attempts" ]; then
+                return 1
+              fi
+              n=$((n + 1))
+              sleep 10
+            done
+          }
+
+          retry 3 sudo apt-get update -o Acquire::Retries=3
+          retry 3 sudo apt-get install -y -o Acquire::Retries=3 ccache linux-headers-"$(uname -r)"
 
       - name: Switch to gcc-13 on Ubuntu 22.04
         if: matrix.os == 'ubuntu-22.04'
         run: |
-          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
-          sudo apt-get update
-          sudo apt install gcc-13 g++-13 -y
+          retry() {
+            local attempts=$1
+            shift
+            local n=1
+            until "$@"; do
+              if [ "$n" -ge "$attempts" ]; then
+                return 1
+              fi
+              n=$((n + 1))
+              sleep 10
+            done
+          }
+
+          retry 3 sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+          retry 3 sudo apt-get update -o Acquire::Retries=3
+          retry 3 sudo apt-get install -y -o Acquire::Retries=3 gcc-13 g++-13
           sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100 --slave /usr/bin/g++ g++ /usr/bin/g++-13 --slave /usr/bin/gcov gcov /usr/bin/gcov-12
           sudo update-alternatives --set gcc /usr/bin/gcc-13
 
       - name: Switch to gcc-14 on Ubuntu 24.04
         if: matrix.os == 'ubuntu-24.04'
         run: |
-          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
-          sudo apt-get update
-          sudo apt-get install gcc-14 g++-14 -y
+          retry() {
+            local attempts=$1
+            shift
+            local n=1
+            until "$@"; do
+              if [ "$n" -ge "$attempts" ]; then
+                return 1
+              fi
+              n=$((n + 1))
+              sleep 10
+            done
+          }
+
+          retry 3 sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+          retry 3 sudo apt-get update -o Acquire::Retries=3
+          retry 3 sudo apt-get install -y -o Acquire::Retries=3 gcc-14 g++-14
           sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100 --slave /usr/bin/g++ g++ /usr/bin/g++-14 --slave /usr/bin/gcov gcov /usr/bin/gcov-14
           sudo update-alternatives --set gcc /usr/bin/gcc-14
 
-      - name: CCache
-        uses: hendrikmuhs/ccache-action@main
+      - name: Setup cached CMake environment
+        uses: ./.github/actions/setup-cmake-build-env
         with:
-          max-size: "1G"
-          key: ccache-${{ matrix.os }}-${{ matrix.buildtype }}
-          restore-keys: |
-            ccache-${{ matrix.os }}
-
-      - name: Restore artifacts and install vcpkg
-        id: vcpkg-step
-        run: |
-          vcpkgCommitId=$(grep '.builtin-baseline' vcpkg.json | awk -F: '{print $2}' | tr -d '," ')
-          echo "vcpkg commit ID: $vcpkgCommitId"
-          echo "VCPKG_GIT_COMMIT_ID=$vcpkgCommitId" >> "$GITHUB_ENV"
-
-      - name: Get vcpkg commit id from vcpkg.json
-        uses: lukka/run-vcpkg@main
-        with:
-          vcpkgGitURL: "https://github.com/microsoft/vcpkg.git"
-          vcpkgGitCommitId: ${{ env.VCPKG_GIT_COMMIT_ID }}
-
-      - name: Get latest CMake and ninja
-        uses: lukka/get-cmake@main
+          compiler-cache-key: ccache-${{ matrix.os }}-${{ matrix.buildtype }}
+          vcpkg-cache-suffix: ${{ matrix.os }}-${{ matrix.buildtype }}
 
       - name: Run CMake
         uses: lukka/run-cmake@main
