@@ -237,7 +237,7 @@ void IOWeeklyTasks::onCreatureKill(const std::shared_ptr<Player> &player, uint16
 
 	if (validBestiaryCreature) {
 		if (weeklyData.anyCreatureCurrentKills < weeklyData.anyCreatureTotalKills) {
-			weeklyData.anyCreatureCurrentKills += kills;
+			weeklyData.anyCreatureCurrentKills++;
 			updated = true;
 
 			if (weeklyData.anyCreatureCurrentKills >= weeklyData.anyCreatureTotalKills) {
