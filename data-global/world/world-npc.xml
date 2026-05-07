@@ -203,6 +203,7 @@
 	</npc>
 	<npc centerx="32434" centery="32494" centerz="4" radius="1">
 		<npc name="Dal the Huntress" x="0" y="0" z="4" spawntime="60" />
+	</npc>
 	<npc centerx="32393" centery="32470" centerz="4" radius="1">
 		<npc name="Augustin" x="0" y="0" z="4" spawntime="60" />
 	</npc>

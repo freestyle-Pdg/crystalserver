@@ -5851,7 +5851,7 @@ void ProtocolGame::sendWeeklyTaskData(const WeeklyTaskData &weeklyData) {
 	}
 
 	msg.addByte(static_cast<uint8_t>(weeklyData.deliveryTasks.size()));
-	for (uint8_t i = 0; i < weeklyData.deliveryTasks.size(); ++i) {
+	for (std::size_t i = 0; i < weeklyData.deliveryTasks.size(); ++i) {
 		const auto &task = weeklyData.deliveryTasks[i];
 		msg.addByte(task.index);
 		msg.add<uint16_t>(task.itemId);

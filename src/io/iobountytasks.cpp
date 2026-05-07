@@ -85,7 +85,7 @@ void IOBountyTasks::generateCreatureList(const std::shared_ptr<Player> &player, 
 	auto maxIndex = static_cast<int32_t>(bestiaryList.size() - 1);
 
 	uint8_t creaturesGenerated = 0;
-	uint8_t tries = 0;
+	uint16_t tries = 0;
 	while (creaturesGenerated < BOUNTY_MAX_CREATURES && tries < 1000) {
 		uint16_t raceId = (*(std::next(bestiaryList.begin(), uniform_random(0, maxIndex)))).first;
 		tries++;
@@ -203,7 +203,7 @@ void IOBountyTasks::fillMissingCreatures(const std::shared_ptr<Player> &player) 
 
 	auto maxIndex = static_cast<int32_t>(bestiaryList.size() - 1);
 	uint8_t creaturesGenerated = static_cast<uint8_t>(bountyData.currentCreaturesList.size());
-	uint8_t tries = 0;
+	uint16_t tries = 0;
 	while (creaturesGenerated < BOUNTY_MAX_CREATURES && tries < 1000) {
 		uint16_t raceId = (*(std::next(bestiaryList.begin(), uniform_random(0, maxIndex)))).first;
 		tries++;
@@ -467,9 +467,9 @@ void IOBountyTasks::unlockListSlot(const std::shared_ptr<Player> &player, uint8_
 	initializeListSlots(bountyData);
 
 	// Client always sends 0 - find the next locked slot to unlock
-	uint8_t slot = 0;
+	size_t slot = 0;
 	bool found = false;
-	for (uint8_t i = 0; i < bountyData.preferredLists.size(); ++i) {
+	for (size_t i = 0; i < bountyData.preferredLists.size(); ++i) {
 		if (bountyData.preferredLists[i].activedList == 0) {
 			slot = i;
 			found = true;

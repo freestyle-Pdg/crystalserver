@@ -183,7 +183,7 @@ void IOWeeklyTasks::generateWeeklyTasks(const std::shared_ptr<Player> &player, u
 		g_logger().warn("[IOWeeklyTasks::generateWeeklyTasks] - No delivery items loaded from Lua");
 	}
 
-	uint8_t deliveryTasksGenerated = 0;
+	size_t deliveryTasksGenerated = 0;
 	std::vector<uint16_t> usedItemIds;
 	auto maxAvailableDelivery = std::min(static_cast<size_t>(maxDeliveryTasks), deliveryItems.size());
 	while (deliveryTasksGenerated < maxAvailableDelivery) {
@@ -196,7 +196,7 @@ void IOWeeklyTasks::generateWeeklyTasks(const std::shared_ptr<Player> &player, u
 		usedItemIds.push_back(deliveryItem.itemId);
 
 		WeeklyDeliveryTask task;
-		task.index = deliveryTasksGenerated;
+		task.index = static_cast<uint8_t>(deliveryTasksGenerated);
 		task.itemId = deliveryItem.itemId;
 		task.totalItems = deliveryItem.count;
 		task.collectedItems = 0;
