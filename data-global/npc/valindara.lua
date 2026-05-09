@@ -243,6 +243,7 @@ npcConfig.shop = {
 	{ itemName = "wild growth rune", clientId = 3156, buy = 160 },
 	{ itemName = "wood cape", clientId = 3575, sell = 5000 },
 	{ itemName = "wooden spellbook", clientId = 25699, sell = 12000 },
+	{ itemName = "bounty talisman", clientId = 51978, buy = 5000 },
 }
 
 npcHandler:setCallback(CALLBACK_MESSAGE_DEFAULT, creatureSayCallback)
