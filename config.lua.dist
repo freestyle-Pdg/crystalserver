@@ -74,7 +74,9 @@ levelToFormGuild = 8
 createGuildOnlyPremium = true
 
 -- Clean system
+-- Note: set cleanDatabase true will delete inactive players and their accounts, for more information check database_cleaner.lua at data/scripts/globalevents
 cleanProtectionZones = false
+cleanDatabase = false
 
 -- Connection Config
 -- NOTE: allowOldProtocol can allow login on 10x protocol. (11.00)

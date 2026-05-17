@@ -126,6 +126,7 @@ bool ConfigManager::load() {
 	loadBoolConfig(L, ENABLE_MARKET, "enableMarket", true);
 	loadBoolConfig(L, ADVANCED_PARTY_PROTECTION, "advancedPartyProtection", true);
 	loadBoolConfig(L, MOUNT_SOUNDS, "mountSounds", true);
+	loadBoolConfig(L, CLEAN_DATABASE, "cleanDatabase", true);
 	loadBoolConfig(L, LOG_PLAYER_IP, "logPlayerIP", true);
 	loadBoolConfig(L, RATE_USE_STAGES, "rateUseStages", false);
 	loadBoolConfig(L, REFUND_BEGINNING_WEAPON_MANA, "refundBeginningWeaponMana", false);
